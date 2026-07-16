@@ -1,0 +1,27 @@
+# --- Node / Next.js (Web/) ---
+node_modules/
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# --- Secrets / local environment ---
+.env
+.env.*
+!.env.example
+
+# --- Xcode / iOS ---
+xcuserdata/
+*.xcuserstate
+DerivedData/
+.build/
+*.xcscmblueprint
+*.xccheckout
+
+# --- Tooling / OS / editor ---
+.claude/
+.DS_Store
+.vscode/
+.idea/
+*.swp

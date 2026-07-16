@@ -1,0 +1,44 @@
+[
+  {
+    "id": "cam-baybridge-yerba",
+    "title": "Bay Bridge / Yerba Buena camera",
+    "coordinate": { "lat": 37.8107, "lng": -122.3648 },
+    "source": "Sample Camera Feed",
+    "agency": "Other",
+    "status": "available",
+    "publicPageUrl": "https://quickmap.dot.ca.gov/",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?auto=format&fit=crop&w=600&q=80",
+    "updatedAt": "2026-03-25T14:18:00.000Z"
+  },
+  {
+    "id": "cam-sfo-101",
+    "title": "US-101 / SFO approach camera",
+    "coordinate": { "lat": 37.6401, "lng": -122.4049 },
+    "source": "Sample Camera Feed",
+    "agency": "Other",
+    "status": "available",
+    "publicPageUrl": "https://quickmap.dot.ca.gov/",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=600&q=80",
+    "updatedAt": "2026-03-25T14:17:00.000Z"
+  },
+  {
+    "id": "cam-oakland-880",
+    "title": "I-880 / 23rd Ave camera",
+    "coordinate": { "lat": 37.7841, "lng": -122.2286 },
+    "source": "Sample Camera Feed",
+    "agency": "Other",
+    "status": "limited",
+    "publicPageUrl": "https://quickmap.dot.ca.gov/",
+    "updatedAt": "2026-03-25T14:10:00.000Z"
+  },
+  {
+    "id": "cam-transbay-fremont",
+    "title": "Transit Center / Fremont camera",
+    "coordinate": { "lat": 37.7895, "lng": -122.3964 },
+    "source": "Sample Camera Feed",
+    "agency": "Other",
+    "status": "available",
+    "publicPageUrl": "https://quickmap.dot.ca.gov/",
+    "updatedAt": "2026-03-25T14:22:00.000Z"
+  }
+]

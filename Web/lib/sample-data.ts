@@ -1,0 +1,45 @@
+import cameraFeedRaw from "@/sample-data/cameras.json";
+import trafficIncidentsRaw from "@/sample-data/traffic-incidents.json";
+import transitAlertsRaw from "@/sample-data/transit-alerts.json";
+import type { CameraFeed, TrafficIncident, TransitAlert } from "@/types";
+
+// Stagger offsets so incidents appear recently-started, not stale.
+// Each item is offset by (baseMinutes + index * stepMinutes) minutes in the past.
+const SAMPLE_BASE_OFFSET_MINUTES = 8;
+const SAMPLE_STEP_MINUTES = 12;
+
+function freshenTimestamps<T extends { startTime?: string; updatedAt?: string }>(
+  items: T[]
+): T[] {
+  const now = Date.now();
+  return items.map((item, index) => {
+    const offsetMs = (SAMPLE_BASE_OFFSET_MINUTES + index * SAMPLE_STEP_MINUTES) * 60_000;
+    return {
+      ...item,
+      ...(item.startTime !== undefined
+        ? { startTime: new Date(now - offsetMs).toISOString() }
+        : {}),
+      ...(item.updatedAt !== undefined
+        ? { updatedAt: new Date(now - offsetMs + 90_000).toISOString() }
+        : {})
+    };
+  });
+}
+
+export function getSampleTransitAlerts(): TransitAlert[] {
+  return freshenTimestamps(transitAlertsRaw as TransitAlert[]);
+}
+
+export function getSampleTrafficIncidents(): TrafficIncident[] {
+  return freshenTimestamps(trafficIncidentsRaw as TrafficIncident[]);
+}
+
+export function getSampleCameras(): CameraFeed[] {
+  return freshenTimestamps(cameraFeedRaw as CameraFeed[]);
+}
+
+// Legacy exports kept for any direct imports that expect constants.
+// These are computed once at module load, which is fine for build-time use.
+export const SAMPLE_TRANSIT_ALERTS = getSampleTransitAlerts();
+export const SAMPLE_TRAFFIC_INCIDENTS = getSampleTrafficIncidents();
+export const SAMPLE_CAMERAS = getSampleCameras();

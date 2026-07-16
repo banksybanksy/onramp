@@ -1,0 +1,77 @@
+[
+  {
+    "id": "bart-24th-delay",
+    "agency": "BART",
+    "title": "10-minute delay through 24th St Mission",
+    "subtitle": "Signal issue on the Daly City line",
+    "description": "Residual signal trouble is slowing southbound trains between Powell St and Daly City. Riders should expect platform crowding and a rolling 10-minute delay.",
+    "severity": "major",
+    "coordinate": { "lat": 37.7525, "lng": -122.4187 },
+    "affectedRoutes": ["Yellow", "Red"],
+    "startTime": "2026-03-25T13:40:00.000Z",
+    "endTime": "2026-03-25T17:10:00.000Z",
+    "url": "https://www.bart.gov/schedules/advisories",
+    "source": "Sample Transit Feed"
+  },
+  {
+    "id": "muni-nline-slow",
+    "agency": "Muni",
+    "title": "N Judah service slowed in the Sunset",
+    "subtitle": "Operator availability and street congestion",
+    "description": "Outbound N Judah trains are bunching west of Van Ness due to operator availability and heavy vehicle congestion near Irving St.",
+    "severity": "minor",
+    "coordinate": { "lat": 37.7621, "lng": -122.4662 },
+    "affectedRoutes": ["N"],
+    "startTime": "2026-03-25T14:20:00.000Z",
+    "url": "https://www.sfmta.com/travel-updates",
+    "source": "Sample Transit Feed"
+  },
+  {
+    "id": "caltrain-sf-millbrae",
+    "agency": "Caltrain",
+    "title": "Major delay between San Francisco and Millbrae",
+    "subtitle": "Track inspection blocking one platform",
+    "description": "A track inspection near Bayshore is forcing single-track operation, causing northbound and southbound delays up to 20 minutes.",
+    "severity": "major",
+    "coordinate": { "lat": 37.7099, "lng": -122.4013 },
+    "affectedRoutes": ["Local", "Baby Bullet"],
+    "startTime": "2026-03-25T12:55:00.000Z",
+    "source": "Sample Transit Feed"
+  },
+  {
+    "id": "ac-transit-bay-bridge",
+    "agency": "AC Transit",
+    "title": "Transbay routes rerouted off Fremont St",
+    "subtitle": "Police activity near the Salesforce Transit Center",
+    "description": "Routes F, NL, and O are using temporary stops around Mission St while police activity blocks part of Fremont St.",
+    "severity": "critical",
+    "coordinate": { "lat": 37.7891, "lng": -122.3959 },
+    "affectedRoutes": ["F", "NL", "O"],
+    "startTime": "2026-03-25T14:10:00.000Z",
+    "source": "Sample Transit Feed"
+  },
+  {
+    "id": "vta-blue-san-jose",
+    "agency": "VTA",
+    "title": "Blue Line operating every 20 minutes",
+    "subtitle": "Vehicle availability",
+    "description": "Blue Line trains are operating on a reduced headway because one vehicle set is out of service for inspection.",
+    "severity": "minor",
+    "coordinate": { "lat": 37.3297, "lng": -121.8892 },
+    "affectedRoutes": ["Blue"],
+    "startTime": "2026-03-25T11:30:00.000Z",
+    "source": "Sample Transit Feed"
+  },
+  {
+    "id": "samtrans-101-detour",
+    "agency": "SamTrans",
+    "title": "Route 398 detour near SFO",
+    "subtitle": "Northbound stop closure",
+    "description": "Route 398 is bypassing the usual northbound stop near Terminal 2 because of a lane closure on Airport Access Rd.",
+    "severity": "minor",
+    "coordinate": { "lat": 37.6169, "lng": -122.3865 },
+    "affectedRoutes": ["398"],
+    "startTime": "2026-03-25T14:00:00.000Z",
+    "source": "Sample Transit Feed"
+  }
+]

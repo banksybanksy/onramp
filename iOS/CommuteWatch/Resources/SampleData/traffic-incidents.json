@@ -1,0 +1,51 @@
+[
+  {
+    "id": "traffic-baybridge-westbound",
+    "title": "Bay Bridge westbound crash",
+    "subtitle": "Two right lanes blocked approaching Treasure Island",
+    "description": "Multi-vehicle collision on I-80 westbound approaching Treasure Island is blocking two right lanes and causing severe backup from Emeryville.",
+    "severity": "critical",
+    "coordinate": { "lat": 37.8198, "lng": -122.3491 },
+    "startTime": "2026-03-25T14:08:00.000Z",
+    "url": "https://quickmap.dot.ca.gov/",
+    "source": "Sample Traffic Feed",
+    "agency": "Other",
+    "roadNames": ["I-80", "Bay Bridge"]
+  },
+  {
+    "id": "traffic-us101-sfo",
+    "title": "US-101 congestion near SFO",
+    "subtitle": "Stall blocking shoulder and slow travel lanes",
+    "description": "Heavy congestion on US-101 northbound near SFO due to an earlier disabled vehicle and persistent airport traffic.",
+    "severity": "major",
+    "coordinate": { "lat": 37.6447, "lng": -122.4054 },
+    "startTime": "2026-03-25T13:35:00.000Z",
+    "source": "Sample Traffic Feed",
+    "agency": "Other",
+    "roadNames": ["US-101"]
+  },
+  {
+    "id": "traffic-880-oakland",
+    "title": "Slow traffic on I-880 in Oakland",
+    "subtitle": "Roadwork at 23rd Ave",
+    "description": "Crews are working on the shoulder near 23rd Ave. Expect stop-and-go traffic on I-880 northbound through East Oakland.",
+    "severity": "major",
+    "coordinate": { "lat": 37.7846, "lng": -122.2305 },
+    "startTime": "2026-03-25T12:50:00.000Z",
+    "source": "Sample Traffic Feed",
+    "agency": "Other",
+    "roadNames": ["I-880"]
+  },
+  {
+    "id": "traffic-280-daly-city",
+    "title": "Minor slowdown on I-280",
+    "subtitle": "Emergency response near Daly City",
+    "description": "Emergency response activity is on the right shoulder of I-280 southbound near Hickey Blvd. Speeds are reduced but traffic is moving.",
+    "severity": "minor",
+    "coordinate": { "lat": 37.6907, "lng": -122.4679 },
+    "startTime": "2026-03-25T13:55:00.000Z",
+    "source": "Sample Traffic Feed",
+    "agency": "Other",
+    "roadNames": ["I-280"]
+  }
+]

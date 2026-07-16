@@ -1,0 +1,341 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --background: #dbe5ea;
+  --foreground: #112133;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --background: #dbe5ea;
+    --foreground: #112133;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+body {
+  font-family:
+    "Avenir Next",
+    "Segoe UI Variable Display",
+    "Segoe UI",
+    "Helvetica Neue",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.cw-reflect-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.cw-reflect-button::before {
+  position: absolute;
+  top: -10%;
+  bottom: -10%;
+  left: -42%;
+  width: 38%;
+  background: linear-gradient(
+    110deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.56) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  content: "";
+  opacity: 0;
+  pointer-events: none;
+  transform: skewX(-18deg);
+  transition:
+    transform 320ms ease,
+    opacity 220ms ease;
+}
+
+.cw-reflect-button:hover::before {
+  opacity: 1;
+  transform: translateX(360%) skewX(-18deg);
+}
+
+.mapboxgl-ctrl-logo {
+  display: none !important;
+}
+
+/* Compact Mapbox attribution — keep legally present but visually minimal */
+.mapboxgl-ctrl-attrib {
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+.mapboxgl-ctrl-attrib-button {
+  background-color: rgba(255, 255, 255, 0.7) !important;
+  border-radius: 50% !important;
+}
+
+.mapboxgl-ctrl-bottom-right .mapboxgl-ctrl {
+  margin: 0 6px 6px 0 !important;
+}
+
+/* Hide scrollbar visually while keeping scroll functionality */
+.cw-scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.cw-scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+.cw-map-popup .mapboxgl-popup-content {
+  border-radius: 18px;
+  border: 1px solid rgba(203, 213, 225, 0.95);
+  background: rgba(255, 251, 244, 0.96);
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.16);
+  padding: 0;
+}
+
+.cw-map-popup .mapboxgl-popup-tip {
+  border-top-color: rgba(255, 251, 244, 0.96) !important;
+}
+
+.cw-camera-popup {
+  min-width: 220px;
+  padding: 14px 14px 13px;
+}
+
+.cw-camera-popup-frame {
+  position: relative;
+  margin-bottom: 12px;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  background: #e2e8f0;
+}
+
+.cw-camera-popup-frame img {
+  display: block;
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+}
+
+.cw-camera-popup-live {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.62);
+  color: #4ade80;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.cw-camera-popup-kicker {
+  margin: 0;
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.cw-camera-popup-title {
+  margin: 8px 0 0;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #0f172a;
+}
+
+.cw-camera-popup-location {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #475569;
+}
+
+.cw-camera-popup-link {
+  display: inline-flex;
+  margin-top: 12px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(203, 213, 225, 0.95);
+  background: #ffffff;
+  padding: 9px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #0f172a;
+}
+
+.cw-marker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 16px;
+  width: 16px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(17, 33, 51, 0.16);
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    opacity 180ms ease;
+}
+
+.cw-marker::after {
+  position: absolute;
+  inset: -4px;
+  border: 1px solid rgba(17, 33, 51, 0.14);
+  border-radius: inherit;
+  content: "";
+  opacity: 0.9;
+}
+
+.cw-marker:hover,
+.cw-marker-selected {
+  transform: scale(1.12);
+}
+
+.cw-marker-transit {
+  border-color: #3567eb;
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.cw-marker-traffic {
+  border-color: #d64d3a;
+  background: #fff7f4;
+}
+
+.cw-marker-camera {
+  height: 12px;
+  width: 12px;
+  border-color: #7258ff;
+  background: rgba(245, 241, 255, 0.96);
+}
+
+.cw-marker-camera::after {
+  inset: -3px;
+  border-style: solid;
+  border-color: rgba(114, 88, 255, 0.18);
+}
+
+.cw-marker-glyph {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  pointer-events: none;
+}
+
+.cw-marker-glyph-transit {
+  color: #3567eb;
+}
+
+.cw-marker-glyph-traffic {
+  color: #d64d3a;
+  font-size: 9px;
+}
+
+.cw-marker-glyph-camera {
+  color: #7258ff;
+  font-size: 7px;
+}
+
+.cw-marker-minor {
+  border-width: 2px;
+}
+
+.cw-marker-major {
+  height: 18px;
+  width: 18px;
+  border-width: 3px;
+}
+
+.cw-marker-critical {
+  height: 18px;
+  width: 18px;
+  border-width: 3px;
+  box-shadow: 0 6px 18px rgba(214, 77, 58, 0.22);
+}
+
+.cw-marker-critical::before {
+  position: absolute;
+  inset: -7px;
+  border-radius: inherit;
+  background: radial-gradient(circle, rgba(214, 77, 58, 0.14) 0%, transparent 72%);
+  content: "";
+  animation: pulse 2.2s ease-in-out infinite;
+}
+
+.cw-marker-commute::after {
+  border-color: rgba(53, 103, 235, 0.45);
+  border-width: 1.5px;
+}
+
+.cw-user-marker {
+  display: inline-flex;
+  height: 14px;
+  width: 14px;
+  border-radius: 999px;
+  background: #3567eb;
+  box-shadow:
+    0 0 0 4px rgba(53, 103, 235, 0.18),
+    0 0 0 9px rgba(53, 103, 235, 0.08);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(0.88);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
