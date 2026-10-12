@@ -1,0 +1,34 @@
+name: Web
+
+on:
+  push:
+    branches: [main]
+    paths: ["Web/**", ".github/workflows/web.yml"]
+  pull_request:
+    paths: ["Web/**", ".github/workflows/web.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Web
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Web/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm test
+      # No secrets: the app builds and runs on bundled sample data.
+      - run: npm run build

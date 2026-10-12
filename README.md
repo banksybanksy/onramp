@@ -1,90 +1,69 @@
 # Onramp
 
-A map-first Bay Area commute watcher: live traffic incidents, transit service alerts, and freeway cameras on one map, with a route filter that flags what actually sits on your commute. Built twice on one data layer, as a Next.js web app and a native SwiftUI iOS client.
+Onramp puts Bay Area traffic incidents, transit alerts and freeway cameras on one map, so I can check my commute in one place instead of three sites before leaving.
 
-![The web app: a Bay Area map with live incidents and cameras](docs/screenshots/overview.jpg)
+![The web app with live 511 traffic and Caltrans cameras on the map](docs/screenshots/overview.jpg)
 
-## What it does
+<sub>Captured with live keys, before the app was renamed from its working title, CommuteWatch.</sub>
 
-It pulls live Bay Area traffic incidents (511), transit service alerts by agency (511), and freeway CCTV cameras (Caltrans) onto a single Mapbox map, each tagged with a severity. You can filter by layer (traffic, transit, cameras) and by transit agency, open any incident for its full detail plus the nearest camera, and enter a From and To to see which incidents fall on your commute corridor. Every source reports its own status (live, partial, or fallback), and with no API keys at all the app still runs end to end on bundled sample data.
+## How it works
 
-## Why I built it
+**One contract for three feeds.** The server fetches 511 traffic events (Open511 JSON), 511 transit alerts (GTFS-Realtime as JSON) and Caltrans District 4 CCTV, and normalizes them into a single `IncidentsResponse` from `GET /api/incidents`. Every source also reports a status:
 
-I check a few different sites before leaving: one for traffic, one for BART or Muni alerts, a camera page to eyeball a bridge. I wanted them on one map, scoped to the Bay Area, that could tell me whether a given mess was actually on my way. Building it turned into a lesson in how messy "just read the JSON feed" can get.
+| Status | Meaning |
+| --- | --- |
+| `live` | Every configured feed for this source answered. |
+| `partial` | Some feeds answered, some failed; the message says which. |
+| `fallback`, `ok: true` | No key configured. Bundled sample data, labeled "sample". |
+| `fallback`, `ok: false` | The feed failed or returned nothing usable. Sample data is shown and the pill turns red ("failed"). |
 
-## Data sources
+That last row is the point of the design. A feed that fails must never look like an empty map, because an empty map reads as a clear road. The decision lives in one function, `resolveSource` in [`Web/services/source-status.ts`](Web/services/source-status.ts), and it is unit-tested.
 
-Keys are optional. Without them the app serves bundled sample data and labels each source as fallback.
+**Normalizing messy feeds.** The 511 transit endpoint returned three payload shapes (`{ entity: [...] }`, `{ alerts: [...] }`, a bare array), mixed `snake_case` and `camelCase` field names, text wrapped in GTFS translation objects, two-letter operator codes and, often, no coordinates. My first parser assumed one shape, and alerts silently vanished. The normalizers in `Web/services/*-service.ts` now accept every shape seen so far, convert GTFS epoch-second timestamps, map operator codes to agencies, and place route-wide alerts at an approximate landmark or agency point instead of dropping them. Fixtures from each shape are in `Web/services/__fixtures__/` and the tests next to the services.
 
-| Source | What it provides | API key | Notes |
-|---|---|---|---|
-| [511 SF Bay Transit Service Alerts](https://511.org/open-data/transit) (`api.511.org/transit/servicealerts`) | Regional transit service alerts, delivered as GTFS-Realtime translated to JSON | Free 511 token | The subject of the story below |
-| [511 SF Bay Traffic Events](https://511.org/open-data/traffic) (`api.511.org/traffic/events`) | Active traffic incidents in Open511 JSON | Free 511 token | |
-| [Caltrans District 4 CCTV](https://cwwp2.dot.ca.gov/documentation/mtr/cctv.htm) (`cwwp2.dot.ca.gov/data`) | Freeway camera locations and snapshot image URLs | No | Camera images are frequently offline; the UI shows a placeholder |
-| [Mapbox](https://docs.mapbox.com/) (`api.mapbox.com`) | Basemap tiles, geocoding, and directions | Public `pk.` token | Ships in the client bundle by design; restrict it by domain |
+**Two clients, one contract.** The Next.js client (Mapbox GL) and the SwiftUI client in `iOS/` (MapKit) both decode the same `/api/*` responses, so incidents, severities and source status mean the same thing on web and on the phone. The 511 key stays on the server; only the public Mapbox token reaches the browser.
 
-## The interesting problem
+## Run it
 
-**What I expected.** The 511 transit service-alerts endpoint returns JSON, so I assumed I would read something like `alerts[]` with `title`, `description`, `agency`, and `routes`, plot each one, and move on.
-
-**What it actually did.** Alerts kept silently disappearing from the map. No errors, just fewer alerts than 511's own site showed. Reading the raw responses field by field, instead of trusting the field names, turned up several reasons at once:
-
-- The payload was not a flat array. Sometimes it was `{ entity: [{ id, alert: {...} }] }` (the real GTFS-Realtime shape), sometimes `{ alerts: [...] }`, sometimes a bare array.
-- Field names were inconsistent across records: `headerText` vs `header_text`, `informedEntities` vs `informed_entities` vs `informedEntity`.
-- Human-readable text was not a string. It was wrapped in GTFS-Realtime translation objects, `{ translation: [{ text, language }] }`.
-- Agencies came through as cryptic operator codes (`BA`, `SF`, `CT`) rather than names.
-- Many alerts had no coordinates at all, because a service alert is scoped to a route or a whole system, not a point on a map.
-
-My original parser assumed one clean shape, so any record that did not match it got dropped on the floor. That was the silent disappearance.
-
-**What I decided to do.** I wrote one defensive normalizer (`services/transit-alerts-service.ts`) that stops assuming and starts coping:
-
-- `extractTransitEntities` accepts all three payload shapes and flattens them to a common list.
-- `normalizeTransitEntity` tries every field-name variant, unwraps the `translation` objects to plain text, and maps the two-letter operator codes to real agency names.
-- When an alert has no id, it synthesizes a stable one from agency, title, and coordinates, so duplicates across shapes collapse via `uniqueBy`.
-- When an alert has no coordinates, it infers an approximate location from landmark keywords in the text and falls back to an agency-default point (`lib/geo.ts`), so route-scoped alerts still land somewhere sensible on the map.
-- If a feed fails or returns nothing usable, the source degrades to bundled sample data and reports itself as `partial` or `fallback` through a status pill, so the map never silently shows nothing.
-
-**What I chose not to do.** I did not hard-code to a single payload shape, I did not drop records that failed to match an expected schema (that was the original bug), and I did not fabricate precise coordinates for alerts that genuinely have none.
-
-## Running it locally
-
-**Web app** (requires Node 18.19+):
+Web app (Node 20.19 or newer):
 
 ```bash
 cd Web
 npm install
-npm run dev
+npm run dev     # http://localhost:3000
 ```
 
-Then open **http://localhost:3000**. Copy `Web/.env.example` to `Web/.env.local` and add a Mapbox token and a 511 key to enable live data; without them the app runs on sample data.
+It runs with no keys at all: every source serves bundled sample data, labeled as sample, and the map area shows a notice instead of tiles. To go live, copy `Web/.env.example` to `Web/.env.local` and fill in:
 
-**iOS app** (requires Xcode): open `iOS/CommuteWatch.xcodeproj`, pick an iPhone simulator, and run. In the simulator it defaults to the web backend at `http://localhost:3000`, and falls back to bundled sample data if that backend is not running. See `iOS/README.md` for details.
+| Variable | Enables | Without it |
+| --- | --- | --- |
+| `BAY_511_API_KEY` | Live 511 traffic events and transit alerts ([free key](https://511.org/open-data/token)) | Sample incidents and alerts |
+| `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` | Map tiles and place search; driving routes for the iOS client (public `pk.` token) | No map; place search knows five sample stations; routes are straight lines |
 
-## Architecture
+Caltrans cameras need no key. Optional feed overrides are listed in `Web/.env.example`.
 
-- **The data layer is the Next.js app.** Its `app/api/*` routes fetch the 511, Caltrans, and Mapbox feeds server-side, normalize them into one domain model (incidents, transit alerts, cameras, with live/partial/fallback status), and keep the 511 key server-side. Only the public Mapbox token reaches the browser.
-- **Two clients, one contract.** The Next.js frontend (Mapbox GL) and the SwiftUI iOS client (MapKit) both consume the same `/api/*` routes and decode the same response shapes, so the product behaves consistently across web and native.
-- **Sample-data fallback everywhere.** Both the web routes and the iOS app ship sample fixtures, so the whole thing is runnable with no keys and no network.
+Checks, the same ones CI runs:
 
-## Known limitations
+```bash
+npm run typecheck && npm run lint && npm run format:check && npm test && npm run build
+```
 
-- **Without keys it is sample data, not live.** That keeps the project runnable for anyone, but the bundled alerts are illustrative.
-- **The transit normalizer is defensive, not exhaustive.** It handles the payload shapes and field variants I actually observed from 511. A brand new shape would fall back rather than crash, but it would not be parsed.
-- **Alert coordinates are inferred.** Because service alerts are route-scoped, their map position comes from landmark keywords plus agency-default points. It is approximate by nature.
-- **The fetch layer has a timeout but no retry or backoff.** A slow or rate-limited 511 response just falls back to sample data rather than retrying.
-- **Caltrans camera images are often offline.** The app shows a "temporarily unavailable" placeholder rather than a broken image.
-- **The iOS client is a foundation.** It mirrors the web architecture and is wired to the same backend, but some flows (a fully live repository, route editing) are still sample-backed. Its README lists the remaining work honestly.
-- **Local and single-user.** The Mapbox token ships in the client bundle (a public token, so restrict it by domain), and there is no hosted deployment here.
+iOS client: open `iOS/CommuteWatch.xcodeproj` in Xcode and run on a simulator. It reads the web app at `http://localhost:3000` and falls back to its bundled sample data when that is not running. See [`iOS/README.md`](iOS/README.md).
 
-## Screenshots
+## Status
 
-Open any incident for its full 511 detail, affected routes, and the nearest camera:
+- **The native client is a foundation.** It mirrors the web flows on the shared API, but it has no tests, has never been built in CI, and some flows are unfinished; [`iOS/README.md`](iOS/README.md) lists them.
+- **Alert locations are approximate.** Transit alerts are scoped to routes, not points, so their pins come from landmark keywords or a default point per agency.
+- **Camera images may be unavailable.** Caltrans snapshots go offline often; the app shows a placeholder. The sample cameras use stock photos, not real camera frames.
+- **No retries.** A slow or rate-limited feed waits 10 seconds, then that source falls back to sample data until the next 60-second poll.
+- **The route filter is a straight line.** "From" and "To" keep incidents within 5 km of the straight line between them, not along the driven route.
+
+## More screenshots
+
+Incident detail with the nearest camera:
 
 ![Incident detail with nearby camera](docs/screenshots/incident-detail.jpg)
 
-Enter a From and To to filter the map to your commute corridor:
+The route filter, Oakland to San Francisco:
 
-![Commute corridor filter set from Oakland to San Francisco](docs/screenshots/commute-corridor.jpg)
-
-The iOS client is a native SwiftUI app (MapKit) built on the same API and domain model; it is not shown here because it needs Xcode and a simulator to run.
+![Route filter set from Oakland to San Francisco](docs/screenshots/commute-corridor.jpg)

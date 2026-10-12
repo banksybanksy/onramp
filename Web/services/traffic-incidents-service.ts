@@ -1,26 +1,17 @@
 import { computeFreshnessMinutes, resolveCoordinateFromText } from "@/lib/geo";
 import { logger } from "@/lib/logger";
 import { getSampleTrafficIncidents } from "@/lib/sample-data";
-import { pickFirstString, toArray, uniqueBy } from "@/lib/utils";
 import { SERVER_CONFIG } from "@/lib/config";
+import {
+  flattenGeoJsonFeatures,
+  getArrayOfRecords,
+  getRecord,
+  type UnknownRecord
+} from "@/lib/records";
+import { pickFirstString, toArray, uniqueBy } from "@/lib/utils";
 import { fetchJson } from "@/services/fetch-json";
+import { describeFailure, resolveSource } from "@/services/source-status";
 import type { ServiceResult, TrafficIncident } from "@/types";
-
-type TrafficPayload = Record<string, unknown> | unknown[];
-
-function getRecord(value: unknown) {
-  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
-}
-
-function getArrayOfRecords(value: unknown) {
-  if (!Array.isArray(value)) {
-    return [] as Record<string, unknown>[];
-  }
-
-  return value
-    .map((item) => getRecord(item))
-    .filter((item): item is Record<string, unknown> => Boolean(item));
-}
 
 function parsePoint(value: unknown) {
   if (!value) {
@@ -33,6 +24,11 @@ function parsePoint(value: unknown) {
       return { lat, lng };
     }
     return null;
+  }
+
+  // LineString / MultiPoint geometries: use the first vertex.
+  if (Array.isArray(value) && Array.isArray(value[0])) {
+    return parsePoint(value[0]);
   }
 
   if (Array.isArray(value) && value.length >= 2) {
@@ -105,61 +101,26 @@ function normalizeSeverity(input: unknown): TrafficIncident["severity"] {
   return "minor";
 }
 
-function extractTrafficItems(payload: TrafficPayload) {
+/** Accepts a bare array, `{ incidents }`, Open511 `{ events }`, or a GeoJSON FeatureCollection. */
+export function extractTrafficItems(payload: unknown): UnknownRecord[] {
   if (Array.isArray(payload)) {
-    return payload.filter((item): item is Record<string, unknown> => !!item && typeof item === "object");
+    return getArrayOfRecords(payload);
   }
 
-  if ("incidents" in payload && Array.isArray(payload.incidents)) {
-    return payload.incidents.filter(
-      (item): item is Record<string, unknown> => !!item && typeof item === "object"
-    );
+  const record = getRecord(payload);
+  if (Array.isArray(record?.incidents)) {
+    return getArrayOfRecords(record.incidents);
   }
 
-  if ("events" in payload && Array.isArray(payload.events)) {
-    return payload.events.filter(
-      (item): item is Record<string, unknown> => !!item && typeof item === "object"
-    );
+  if (Array.isArray(record?.events)) {
+    return getArrayOfRecords(record.events);
   }
 
-  if ("features" in payload && Array.isArray(payload.features)) {
-    return payload.features.flatMap((feature) => {
-      if (!feature || typeof feature !== "object" || !("properties" in feature)) {
-        return [];
-      }
-
-      return [
-        {
-          ...((feature as { properties?: Record<string, unknown> }).properties ?? {}),
-          coordinate:
-            feature &&
-            typeof feature === "object" &&
-            "geometry" in feature &&
-            feature.geometry &&
-            typeof feature.geometry === "object" &&
-            Array.isArray((feature.geometry as { coordinates?: unknown[] }).coordinates)
-              ? {
-                  lng: Number(
-                    ((feature.geometry as { coordinates: unknown[] }).coordinates[0] as number) ?? 0
-                  ),
-                  lat: Number(
-                    ((feature.geometry as { coordinates: unknown[] }).coordinates[1] as number) ?? 0
-                  )
-                }
-              : undefined
-        } satisfies Record<string, unknown>
-      ];
-    });
-  }
-
-  return [];
+  return Array.isArray(record?.features) ? flattenGeoJsonFeatures(record.features) : [];
 }
 
-function normalizeTrafficItem(item: Record<string, unknown>) {
-  const roads = [
-    ...getArrayOfRecords(item.roads),
-    ...getArrayOfRecords(item.roadways)
-  ];
+export function normalizeTrafficItem(item: UnknownRecord) {
+  const roads = [...getArrayOfRecords(item.roads), ...getArrayOfRecords(item.roadways)];
   const geography = getRecord(item.geography);
   const geometryCoordinate =
     parsePoint(item.coordinate) ??
@@ -168,25 +129,30 @@ function normalizeTrafficItem(item: Record<string, unknown>) {
     parsePoint(geography);
   const title = pickFirstString(item.title, item.headline, item.eventType, item.description);
   const description = pickFirstString(item.description, item.details, item.comment, title);
-  const coordinate = geometryCoordinate ??
-    (item.location && typeof item.location === "object"
-      ? {
-          lat: Number((item.location as { lat?: unknown }).lat),
-          lng: Number((item.location as { lng?: unknown }).lng)
-        }
-      : resolveCoordinateFromText(`${title} ${description}`));
+  // Without a usable point, place the event approximately from landmarks in its text.
+  const coordinate =
+    geometryCoordinate ??
+    parsePoint(item.location) ??
+    resolveCoordinateFromText(`${title} ${description}`);
   const roadNames = uniqueBy(
     [
       ...toArray(item.roadNames).map((value) => String(value)),
       ...toArray(item.freeways).map((value) => String(value)),
-      ...roads.map((road) => pickFirstString(road.name, road.route, road.direction)).filter(Boolean),
+      ...roads
+        .map((road) => pickFirstString(road.name, road.route, road.direction))
+        .filter(Boolean),
       pickFirstString(item.roadway)
     ].filter(Boolean),
     (road) => road
   );
 
   return {
-    id: pickFirstString(item.id, item.eventId, item.guid, `${title}-${coordinate.lat}-${coordinate.lng}`),
+    id: pickFirstString(
+      item.id,
+      item.eventId,
+      item.guid,
+      `${title}-${coordinate.lat}-${coordinate.lng}`
+    ),
     title: title || "Traffic incident",
     subtitle: pickFirstString(
       item.subtitle,
@@ -194,7 +160,11 @@ function normalizeTrafficItem(item: Record<string, unknown>) {
       item.eventType,
       roads
         .map((road) =>
-          [pickFirstString(road.name, road.route), pickFirstString(road.from), pickFirstString(road.to)]
+          [
+            pickFirstString(road.name, road.route),
+            pickFirstString(road.from),
+            pickFirstString(road.to)
+          ]
             .filter(Boolean)
             .join(" • ")
         )
@@ -236,83 +206,32 @@ function normalizeTrafficItem(item: Record<string, unknown>) {
 
 export class TrafficIncidentsService {
   async getTrafficIncidents(): Promise<ServiceResult<TrafficIncident[]>> {
-    if (!SERVER_CONFIG.trafficFeed.url) {
-      const sampleIncidents = getSampleTrafficIncidents();
-      return {
-        data: sampleIncidents,
-        sourceStatus: {
-          key: "traffic",
-          label: "Traffic",
-          ok: true,
-          mode: "fallback",
-          itemCount: sampleIncidents.length,
-          updatedAt: new Date().toISOString(),
-          message:
-            "Using bundled traffic incident sample data. Add BAY_511_API_KEY to enable official 511 SF Bay roadway alerts."
-        },
-        warnings: []
-      };
-    }
+    const url = SERVER_CONFIG.trafficFeed.url;
+    const failures: string[] = [];
+    let liveIncidents: TrafficIncident[] = [];
 
-    try {
-      const payload = await fetchJson<TrafficPayload>(SERVER_CONFIG.trafficFeed.url);
-      const liveIncidents = uniqueBy(
-        extractTrafficItems(payload).map((item) => normalizeTrafficItem(item)),
-        (incident) => incident.id
-      ).sort((a, b) => {
-        return computeFreshnessMinutes(a.startTime) - computeFreshnessMinutes(b.startTime);
-      });
-
-      if (liveIncidents.length === 0) {
-        const sampleIncidents = getSampleTrafficIncidents();
-        return {
-          data: sampleIncidents,
-          sourceStatus: {
-            key: "traffic",
-            label: "Traffic",
-            ok: false,
-            mode: "fallback",
-            itemCount: sampleIncidents.length,
-            updatedAt: new Date().toISOString(),
-            endpoint: SERVER_CONFIG.trafficFeed.url,
-            message:
-              "Configured traffic feed returned no usable incidents. Showing sample roadway events."
-          },
-          warnings: ["Traffic feed returned no usable incidents"]
-        };
+    if (url) {
+      try {
+        const payload = await fetchJson<unknown>(url);
+        liveIncidents = uniqueBy(
+          extractTrafficItems(payload).map(normalizeTrafficItem),
+          (incident) => incident.id
+        ).sort(
+          (a, b) => computeFreshnessMinutes(a.startTime) - computeFreshnessMinutes(b.startTime)
+        );
+      } catch (error) {
+        logger.error("TrafficIncidentsService", "Traffic feed failed", error);
+        failures.push(`Traffic feed failed: ${describeFailure(error)}.`);
       }
-
-      return {
-        data: liveIncidents,
-        sourceStatus: {
-          key: "traffic",
-          label: "Traffic",
-          ok: true,
-          mode: "live",
-          itemCount: liveIncidents.length,
-          updatedAt: new Date().toISOString(),
-          endpoint: SERVER_CONFIG.trafficFeed.url,
-          message: "Live traffic incidents active"
-        },
-        warnings: []
-      };
-    } catch (error) {
-      logger.error("TrafficIncidentsService", "Falling back to sample traffic incidents", error);
-      const sampleIncidents = getSampleTrafficIncidents();
-      return {
-        data: sampleIncidents,
-        sourceStatus: {
-          key: "traffic",
-          label: "Traffic",
-          ok: false,
-          mode: "fallback",
-          itemCount: sampleIncidents.length,
-          updatedAt: new Date().toISOString(),
-          endpoint: SERVER_CONFIG.trafficFeed.url,
-          message: `Traffic feed failed: ${String(error)}`
-        },
-        warnings: [String(error)]
-      };
     }
+
+    return resolveSource({
+      key: "traffic",
+      endpoints: url ? [url] : [],
+      liveItems: liveIncidents,
+      failures,
+      getSample: getSampleTrafficIncidents,
+      unconfiguredMessage: "Sample data. Set BAY_511_API_KEY for live 511 traffic events."
+    });
   }
 }

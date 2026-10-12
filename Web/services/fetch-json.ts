@@ -1,9 +1,6 @@
 import { PUBLIC_CONFIG } from "@/lib/config";
 
-export async function fetchJson<T>(
-  input: string,
-  init?: RequestInit
-): Promise<T> {
+export async function fetchJson<T>(input: string, init?: RequestInit): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), PUBLIC_CONFIG.endpointTimeoutMs);
 

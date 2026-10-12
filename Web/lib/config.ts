@@ -5,7 +5,7 @@ const parseNumber = (value: string | undefined, fallback: number) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
-export const APP_NAME = "CommuteWatch";
+export const APP_NAME = "Onramp";
 
 const BAY_511_API_ROOT = "https://api.511.org";
 const CALTRANS_CCTV_ROOT = "https://cwwp2.dot.ca.gov/data";
@@ -23,9 +23,7 @@ const parseCsv = (value: string | undefined, fallback: string[]) => {
 
 export const PUBLIC_CONFIG = {
   mapboxToken: process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "",
-  mapStyle:
-    process.env.NEXT_PUBLIC_MAPBOX_STYLE ??
-    "mapbox://styles/mapbox/light-v11",
+  mapStyle: process.env.NEXT_PUBLIC_MAPBOX_STYLE ?? "mapbox://styles/mapbox/light-v11",
   mapCenter: {
     lng: -122.2712,
     lat: 37.8044
@@ -37,12 +35,10 @@ export const PUBLIC_CONFIG = {
     east: -121.55,
     north: 38.38
   },
-  notificationPollMs: parseNumber(
-    process.env.NEXT_PUBLIC_NOTIFICATION_POLL_MS,
-    60_000
-  ),
+  notificationPollMs: parseNumber(process.env.NEXT_PUBLIC_NOTIFICATION_POLL_MS, 60_000),
   cameraAssociationRadiusKm: 3.5,
-  relevanceCorridorKm: 5,
+  /** Half-width of the From/To route filter, in km. */
+  corridorKm: 5,
   endpointTimeoutMs: 10_000
 };
 
@@ -78,24 +74,14 @@ export const SERVER_CONFIG = {
             process.env.CAMERA_FEED_URL ||
             `${CALTRANS_CCTV_ROOT}/d${process.env.CALTRANS_CCTV_DISTRICT ?? "4"}/cctv/cctvStatusD${(
               process.env.CALTRANS_CCTV_DISTRICT ?? "4"
-            )
-              .padStart(2, "0")}.json`,
+            ).padStart(2, "0")}.json`,
           format: process.env.CAMERA_FEED_FORMAT ?? "caltrans-cctv-json"
         }
       ],
   directionsProfile: process.env.MAPBOX_DIRECTIONS_PROFILE ?? "driving"
 };
 
-export const AGENCY_ORDER: Agency[] = [
-  "BART",
-  "Muni",
-  "Caltrain",
-  "AC Transit",
-  "VTA",
-  "SamTrans"
-];
-
-export const SEVERITY_ORDER: Severity[] = ["critical", "major", "minor"];
+export const AGENCY_ORDER: Agency[] = ["BART", "Muni", "Caltrain", "AC Transit", "VTA", "SamTrans"];
 
 export const AGENCY_DEFAULT_COORDINATES: Record<Agency, Coordinate> = {
   BART: { lat: 37.7929, lng: -122.3969 },
@@ -107,10 +93,7 @@ export const AGENCY_DEFAULT_COORDINATES: Record<Agency, Coordinate> = {
   Other: { lat: 37.7749, lng: -122.4194 }
 };
 
-export const SEVERITY_STYLES: Record<
-  Severity,
-  { label: string; accent: string; ring: string }
-> = {
+export const SEVERITY_STYLES: Record<Severity, { label: string; accent: string; ring: string }> = {
   minor: {
     label: "Minor",
     accent: "bg-sky-100 text-sky-700",

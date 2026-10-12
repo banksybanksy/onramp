@@ -1,8 +1,7 @@
 "use client";
 
-import type { Commute, NotificationPreference } from "@/types";
+import type { NotificationPreference } from "@/types";
 
-const COMMUTE_STORAGE_KEY = "commutewatch:commute";
 const NOTIFICATION_STORAGE_KEY = "commutewatch:notification-preference";
 
 const defaultNotificationPreference: NotificationPreference = {
@@ -42,18 +41,7 @@ function writeJson<T>(key: string, value: T) {
   }
 }
 
-export const CommuteStore = {
-  getCommute() {
-    return readJson<Commute | null>(COMMUTE_STORAGE_KEY, null);
-  },
-  saveCommute(commute: Commute) {
-    writeJson(COMMUTE_STORAGE_KEY, commute);
-  },
-  clearCommute() {
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem(COMMUTE_STORAGE_KEY);
-    }
-  },
+export const NotificationStore = {
   getNotificationPreference() {
     const stored = readJson<NotificationPreference>(
       NOTIFICATION_STORAGE_KEY,
@@ -69,7 +57,7 @@ export const CommuteStore = {
       lastPermissionState:
         typeof Notification === "undefined"
           ? "unsupported"
-          : stored.lastPermissionState ?? Notification.permission
+          : (stored.lastPermissionState ?? Notification.permission)
     } satisfies NotificationPreference;
   },
   saveNotificationPreference(preference: NotificationPreference) {

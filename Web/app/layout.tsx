@@ -6,7 +6,8 @@ import { APP_NAME } from "@/lib/config";
 
 export const metadata: Metadata = {
   title: APP_NAME,
-  description: "Map-first Bay Area commute monitoring for transit disruptions and traffic incidents."
+  description:
+    "Map-first Bay Area commute monitoring for transit disruptions and traffic incidents."
 };
 
 export default function RootLayout({

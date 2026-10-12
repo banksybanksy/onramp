@@ -9,6 +9,17 @@ export interface MapViewportState {
   zoom: number;
 }
 
+// A corrupted or hand-edited entry would otherwise crash the map on load.
+function isValidViewport(value: Partial<MapViewportState> | null): value is MapViewportState {
+  return (
+    !!value &&
+    Array.isArray(value.center) &&
+    value.center.length === 2 &&
+    value.center.every(Number.isFinite) &&
+    Number.isFinite(value.zoom)
+  );
+}
+
 export const MapStateService = {
   getDefaultViewport(): MapViewportState {
     return {
@@ -34,7 +45,8 @@ export const MapStateService = {
 
     try {
       const value = window.localStorage.getItem(VIEWPORT_STORAGE_KEY);
-      return value ? (JSON.parse(value) as MapViewportState) : this.getDefaultViewport();
+      const stored = value ? (JSON.parse(value) as Partial<MapViewportState>) : null;
+      return isValidViewport(stored) ? stored : this.getDefaultViewport();
     } catch {
       return this.getDefaultViewport();
     }

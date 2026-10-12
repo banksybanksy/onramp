@@ -1,13 +1,6 @@
 export type Severity = "minor" | "major" | "critical";
 
-export type Agency =
-  | "BART"
-  | "Muni"
-  | "Caltrain"
-  | "AC Transit"
-  | "VTA"
-  | "SamTrans"
-  | "Other";
+export type Agency = "BART" | "Muni" | "Caltrain" | "AC Transit" | "VTA" | "SamTrans" | "Other";
 
 export type SourceKey = "transit" | "traffic" | "cameras";
 
@@ -82,20 +75,6 @@ export interface Incident {
   relevanceScore: number;
   affectsMyCommute?: boolean;
   commuteReasons?: string[];
-}
-
-export interface CommuteLocation {
-  label: string;
-  coordinate: Coordinate;
-  context?: string;
-}
-
-export interface Commute {
-  origin: CommuteLocation;
-  destination: CommuteLocation;
-  preferredAgencies: Agency[];
-  routeGeometry?: Coordinate[];
-  savedAt: string;
 }
 
 export interface NotificationPreference {

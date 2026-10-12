@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FeatureCollection, Point } from "geojson";
-import type { GeoJSONSource, MapLayerMouseEvent, Popup } from "mapbox-gl";
+import type { GeoJSONSource, MapLayerMouseEvent } from "mapbox-gl";
 
 import { PUBLIC_CONFIG } from "@/lib/config";
 import { MapStateService } from "@/services/map-state-service";
 import type { CameraFeed, Incident } from "@/types";
+
+export type MapState = "loading" | "ready" | "missing-token" | "error";
 
 interface MapCanvasProps {
   incidents: Incident[];
@@ -16,6 +18,12 @@ interface MapCanvasProps {
   locateSignal: number;
   onSelectIncident: (incidentId: string) => void;
   onSelectCamera: (cameraId: string) => void;
+  onMapStateChange: (state: MapState) => void;
+}
+
+// Camera moves are skipped, not animated, for people who ask for less motion.
+function motionDuration(ms: number) {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : ms;
 }
 
 const INCIDENT_SOURCE_ID = "cw-incidents";
@@ -25,6 +33,13 @@ const INCIDENT_SYMBOL_LAYER_ID = "cw-incidents-symbol";
 const CAMERA_SOURCE_ID = "cw-cameras";
 const CAMERA_LAYER_ID = "cw-cameras-circle";
 const CAMERA_SYMBOL_LAYER_ID = "cw-cameras-symbol";
+
+function incidentGlyph(incident: Incident) {
+  if (!incident.isTransit) return "!";
+  if (incident.agency === "BART") return "B";
+  if (incident.agency === "Muni") return "M";
+  return "T";
+}
 
 function buildIncidentGeoJson(
   incidents: Incident[],
@@ -40,10 +55,9 @@ function buildIncidentGeoJson(
       },
       properties: {
         id: incident.id,
-        title: incident.title,
         severity: incident.severity,
         markerType: incident.isTransit ? "transit" : "traffic",
-        glyph: incident.isTransit ? (incident.agency === "BART" ? "B" : "M") : "!",
+        glyph: incidentGlyph(incident),
         selected: incident.id === selectedIncidentId ? 1 : 0,
         commute: incident.affectsMyCommute ? 1 : 0
       }
@@ -62,25 +76,11 @@ function buildCameraGeoJson(cameras: CameraFeed[]): FeatureCollection<Point> {
       },
       properties: {
         id: camera.id,
-        title: camera.title,
-        locationHint: camera.locationHint ?? deriveCameraLocationHint(camera.title),
         glyph: "C"
       }
     }))
   };
 }
-
-function deriveCameraLocationHint(title: string) {
-  const withoutPrefix = title.replace(/^TV\d+\s*--\s*/i, "").replace(/\s+camera$/i, "").trim();
-
-  if (withoutPrefix.includes(" : ")) {
-    const [roadway, crossStreet] = withoutPrefix.split(/\s:\s/, 2);
-    return `${roadway} near ${crossStreet}`;
-  }
-
-  return withoutPrefix;
-}
-
 
 function ensureMapLayers(map: mapboxgl.Map) {
   if (!map.getSource(INCIDENT_SOURCE_ID)) {
@@ -104,12 +104,7 @@ function ensureMapLayers(map: mapboxgl.Map) {
           14,
           0
         ],
-        "circle-color": [
-          "case",
-          ["==", ["get", "selected"], 1],
-          "#1d4ed8",
-          "#93c5fd"
-        ],
+        "circle-color": ["case", ["==", ["get", "selected"], 1], "#1d4ed8", "#93c5fd"],
         "circle-opacity": [
           "case",
           ["==", ["get", "selected"], 1],
@@ -134,29 +129,9 @@ function ensureMapLayers(map: mapboxgl.Map) {
           ["match", ["get", "severity"], "critical", 11, "major", 10, 9],
           ["match", ["get", "severity"], "critical", 10, "major", 9, 8]
         ],
-        "circle-color": [
-          "match",
-          ["get", "markerType"],
-          "traffic",
-          "#fff4ef",
-          "#ffffff"
-        ],
-        "circle-stroke-width": [
-          "match",
-          ["get", "severity"],
-          "critical",
-          3,
-          "major",
-          2.5,
-          2
-        ],
-        "circle-stroke-color": [
-          "match",
-          ["get", "markerType"],
-          "traffic",
-          "#d64d3a",
-          "#3567eb"
-        ]
+        "circle-color": ["match", ["get", "markerType"], "traffic", "#fff4ef", "#ffffff"],
+        "circle-stroke-width": ["match", ["get", "severity"], "critical", 3, "major", 2.5, 2],
+        "circle-stroke-color": ["match", ["get", "markerType"], "traffic", "#d64d3a", "#3567eb"]
       }
     });
   }
@@ -174,13 +149,7 @@ function ensureMapLayers(map: mapboxgl.Map) {
         "text-ignore-placement": true
       },
       paint: {
-        "text-color": [
-          "match",
-          ["get", "markerType"],
-          "traffic",
-          "#d64d3a",
-          "#3567eb"
-        ]
+        "text-color": ["match", ["get", "markerType"], "traffic", "#d64d3a", "#3567eb"]
       }
     });
   }
@@ -232,21 +201,18 @@ export function MapCanvas({
   recenterSignal,
   locateSignal,
   onSelectIncident,
-  onSelectCamera
+  onSelectCamera,
+  onMapStateChange
 }: MapCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const mapboxRef = useRef<typeof import("mapbox-gl").default | null>(null);
-  const popupRef = useRef<Popup | null>(null);
   const userMarkerRef = useRef<{ remove: () => void } | null>(null);
   const onSelectIncidentRef = useRef(onSelectIncident);
   const onSelectCameraRef = useRef(onSelectCamera);
-  const cameraLookupRef = useRef(new Map<string, CameraFeed>());
+  const onMapStateChangeRef = useRef(onMapStateChange);
   const hasToken = Boolean(PUBLIC_CONFIG.mapboxToken);
   const [mapReady, setMapReady] = useState(false);
-  const [mapMode, setMapMode] = useState<"mapbox" | "error" | "missing">(
-    hasToken ? "mapbox" : "missing"
-  );
 
   const visibleCameras = useMemo(
     () => cameras.filter((camera) => camera.status !== "offline"),
@@ -262,8 +228,8 @@ export function MapCanvas({
   }, [onSelectCamera]);
 
   useEffect(() => {
-    cameraLookupRef.current = new Map(visibleCameras.map((camera) => [camera.id, camera]));
-  }, [visibleCameras]);
+    onMapStateChangeRef.current = onMapStateChange;
+  }, [onMapStateChange]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current || !hasToken) {
@@ -292,7 +258,6 @@ export function MapCanvas({
       const handleIncidentClick = (event: MapLayerMouseEvent) => {
         const incidentId = event.features?.[0]?.properties?.id;
         if (typeof incidentId === "string") {
-          popupRef.current?.remove();
           onSelectIncidentRef.current(incidentId);
         }
       };
@@ -300,7 +265,6 @@ export function MapCanvas({
       const handleCameraClick = (event: MapLayerMouseEvent) => {
         const cameraId = event.features?.[0]?.properties?.id;
         if (typeof cameraId !== "string") return;
-        popupRef.current?.remove();
         onSelectCameraRef.current(cameraId);
       };
 
@@ -318,16 +282,16 @@ export function MapCanvas({
         }
 
         ensureMapLayers(map);
-        setMapMode("mapbox");
         setMapReady(true);
+        onMapStateChangeRef.current("ready");
       });
 
+      // Mapbox also emits "error" for single failed tiles; only a failure before
+      // the style loads means the map is unusable.
       map.on("error", () => {
-        if (!mounted) {
-          return;
+        if (mounted && !map.loaded()) {
+          onMapStateChangeRef.current("error");
         }
-
-        setMapMode("error");
       });
 
       map.on("moveend", () => {
@@ -355,10 +319,8 @@ export function MapCanvas({
 
     return () => {
       mounted = false;
-      const popup = popupRef.current;
       const userMarker = userMarkerRef.current;
       const mapInstance = mapRef.current;
-      popup?.remove();
       userMarker?.remove();
       mapInstance?.remove();
       mapRef.current = null;
@@ -393,7 +355,7 @@ export function MapCanvas({
     mapRef.current.easeTo({
       center: [PUBLIC_CONFIG.mapCenter.lng, PUBLIC_CONFIG.mapCenter.lat],
       zoom: PUBLIC_CONFIG.mapZoom,
-      duration: 800
+      duration: motionDuration(800)
     });
   }, [recenterSignal, mapReady]);
 
@@ -404,10 +366,7 @@ export function MapCanvas({
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const coordinate: [number, number] = [
-          position.coords.longitude,
-          position.coords.latitude
-        ];
+        const coordinate: [number, number] = [position.coords.longitude, position.coords.latitude];
         const markerElement = document.createElement("span");
         markerElement.className = "cw-user-marker";
 
@@ -422,7 +381,7 @@ export function MapCanvas({
         mapRef.current!.easeTo({
           center: coordinate,
           zoom: 11.8,
-          duration: 900
+          duration: motionDuration(900)
         });
       },
       () => undefined,
@@ -446,25 +405,9 @@ export function MapCanvas({
     mapRef.current.easeTo({
       center: [selected.coordinate.lng, selected.coordinate.lat],
       zoom: Math.max(mapRef.current.getZoom(), 11.5),
-      duration: 700
+      duration: motionDuration(700)
     });
   }, [selectedIncidentId, incidents, mapReady]);
 
-  return (
-    <div className="relative h-full w-full">
-      <div ref={containerRef} className="h-full w-full" />
-      {!hasToken || (mapMode === "error" && !mapReady) ? (
-        <div className="pointer-events-none absolute bottom-5 right-5 rounded-[20px] border border-amber-200 bg-[rgba(255,250,240,0.96)] px-4 py-3 text-sm text-amber-800 shadow-[0_10px_30px_rgba(120,73,0,0.14)] backdrop-blur-xl">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-amber-700">
-            {hasToken ? "Map failed to load" : "Mapbox token needed"}
-          </p>
-          <p className="mt-1 max-w-xs">
-            {hasToken
-              ? "Check that NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN is a valid public token for this domain."
-              : "Add NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN in .env.local to render the map."}
-          </p>
-        </div>
-      ) : null}
-    </div>
-  );
+  return <div ref={containerRef} className="h-full w-full" />;
 }

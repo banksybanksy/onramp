@@ -54,16 +54,13 @@ export const NotificationService = {
   pushRecentId(preference: NotificationPreference, id: string) {
     return {
       ...preference,
-      recentNotificationIds: [id, ...preference.recentNotificationIds.filter((item) => item !== id)].slice(
-        0,
-        MAX_DEDUPE_IDS
-      )
+      recentNotificationIds: [
+        id,
+        ...preference.recentNotificationIds.filter((item) => item !== id)
+      ].slice(0, MAX_DEDUPE_IDS)
     } satisfies NotificationPreference;
   },
-  emitIncidentNotification(
-    incident: Incident,
-    onSelectIncident: (incidentId: string) => void
-  ) {
+  emitIncidentNotification(incident: Incident, onSelectIncident: (incidentId: string) => void) {
     if (!this.isSupported() || Notification.permission !== "granted") {
       return;
     }
