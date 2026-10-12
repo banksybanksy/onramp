@@ -1,5 +1,5 @@
 import { AGENCY_DEFAULT_COORDINATES, PUBLIC_CONFIG } from "@/lib/config";
-import type { Agency, Commute, Coordinate, Incident } from "@/types";
+import type { Agency, Coordinate, Incident } from "@/types";
 
 const EARTH_RADIUS_KM = 6371;
 
@@ -13,9 +13,7 @@ export function haversineDistanceKm(a: Coordinate, b: Coordinate) {
   const lat1 = degreesToRadians(a.lat);
   const lat2 = degreesToRadians(b.lat);
 
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
 
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(h));
 }
@@ -29,11 +27,7 @@ function projectCoordinate(reference: Coordinate, point: Coordinate) {
   return { x, y };
 }
 
-export function pointToSegmentDistanceKm(
-  point: Coordinate,
-  start: Coordinate,
-  end: Coordinate
-) {
+export function pointToSegmentDistanceKm(point: Coordinate, start: Coordinate, end: Coordinate) {
   const reference = start;
   const p = projectCoordinate(reference, point);
   const s = projectCoordinate(reference, start);
@@ -49,10 +43,7 @@ export function pointToSegmentDistanceKm(
 
   const t = Math.max(
     0,
-    Math.min(
-      1,
-      ((p.x - s.x) * segmentX + (p.y - s.y) * segmentY) / segmentLengthSquared
-    )
+    Math.min(1, ((p.x - s.x) * segmentX + (p.y - s.y) * segmentY) / segmentLengthSquared)
   );
 
   const projection = {
@@ -70,10 +61,7 @@ export function lineDistanceKm(point: Coordinate, path: Coordinate[]) {
 
   let best = Number.POSITIVE_INFINITY;
   for (let index = 0; index < path.length - 1; index += 1) {
-    best = Math.min(
-      best,
-      pointToSegmentDistanceKm(point, path[index], path[index + 1])
-    );
+    best = Math.min(best, pointToSegmentDistanceKm(point, path[index], path[index + 1]));
   }
 
   return best;
@@ -116,16 +104,13 @@ const BAY_AREA_KEYWORDS: Record<string, Coordinate> = {
   "salesforce transit center": { lat: 37.7896, lng: -122.3961 },
   "treasure island": { lat: 37.8224, lng: -122.3694 },
   emeryville: { lat: 37.8395, lng: -122.291 },
-  "sfo": { lat: 37.6213, lng: -122.379 },
+  sfo: { lat: 37.6213, lng: -122.379 },
   bayshore: { lat: 37.7063, lng: -122.4013 },
   oakland: { lat: 37.8044, lng: -122.2712 },
   "san jose": { lat: 37.3382, lng: -121.8863 }
 };
 
-export function resolveCoordinateFromText(
-  text: string,
-  agency: Agency = "Other"
-) {
+export function resolveCoordinateFromText(text: string, agency: Agency = "Other") {
   const lowercase = text.toLowerCase();
 
   for (const [keyword, coordinate] of Object.entries(BAY_AREA_KEYWORDS)) {
@@ -154,11 +139,7 @@ export function findNearestCamera<T extends { coordinate: Coordinate }>(
   return best;
 }
 
-export function buildStraightRoute(
-  origin: Coordinate,
-  destination: Coordinate,
-  segments = 24
-) {
+export function buildStraightRoute(origin: Coordinate, destination: Coordinate, segments = 24) {
   return Array.from({ length: segments + 1 }, (_, index) => {
     const progress = index / segments;
     return {
@@ -168,82 +149,6 @@ export function buildStraightRoute(
   });
 }
 
-export function scoreIncidentForCommute(
-  incident: Incident,
-  commute: Commute | null | undefined
-) {
-  if (!commute) {
-    return {
-      affectsMyCommute: false,
-      relevanceScore: 0,
-      reasons: [] as string[]
-    };
-  }
-
-  const routeGeometry =
-    commute.routeGeometry && commute.routeGeometry.length > 1
-      ? commute.routeGeometry
-      : buildStraightRoute(commute.origin.coordinate, commute.destination.coordinate);
-
-  const originDistance = haversineDistanceKm(
-    incident.coordinate,
-    commute.origin.coordinate
-  );
-  const destinationDistance = haversineDistanceKm(
-    incident.coordinate,
-    commute.destination.coordinate
-  );
-  const corridorDistance = lineDistanceKm(incident.coordinate, routeGeometry);
-
-  let relevanceScore = 0;
-  const reasons: string[] = [];
-
-  if (corridorDistance <= PUBLIC_CONFIG.relevanceCorridorKm) {
-    relevanceScore += Math.max(18, 28 - corridorDistance * 3.2);
-    reasons.push("Within commute corridor");
-  }
-
-  if (originDistance <= 2.5) {
-    relevanceScore += 10;
-    reasons.push("Near origin");
-  }
-
-  if (destinationDistance <= 2.5) {
-    relevanceScore += 10;
-    reasons.push("Near destination");
-  }
-
-  if (
-    commute.preferredAgencies.length > 0 &&
-    commute.preferredAgencies.includes(incident.agency)
-  ) {
-    relevanceScore += 12;
-    reasons.push("Matches preferred agency");
-  }
-
-  relevanceScore += severityWeight(incident.severity) * 5;
-
-  const affectsMyCommute = relevanceScore >= 20;
-
-  return {
-    affectsMyCommute,
-    relevanceScore: Math.round(relevanceScore),
-    reasons
-  };
-}
-
-export function coordinateToPercent(coordinate: Coordinate) {
-  const { west, east, south, north } = PUBLIC_CONFIG.bounds;
-  const x = ((coordinate.lng - west) / (east - west)) * 100;
-  const y = ((north - coordinate.lat) / (north - south)) * 100;
-  return {
-    x: Math.min(100, Math.max(0, x)),
-    y: Math.min(100, Math.max(0, y))
-  };
-}
-
 export function encodePath(coordinates: Coordinate[]) {
-  return coordinates
-    .map((coordinate) => `${coordinate.lng},${coordinate.lat}`)
-    .join(";");
+  return coordinates.map((coordinate) => `${coordinate.lng},${coordinate.lat}`).join(";");
 }

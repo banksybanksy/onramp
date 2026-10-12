@@ -5,29 +5,25 @@ import { startTransition, useDeferredValue, useMemo, useState } from "react";
 import { CorridorFilter } from "@/components/corridor-filter";
 import { CameraPanel } from "@/components/camera-panel";
 import { DetailPanel } from "@/components/detail-panel";
-import {
-  type ActiveFilters,
-  FilterChipsRow
-} from "@/components/filter-chips-row";
+import { type ActiveFilters, FilterChipsRow } from "@/components/filter-chips-row";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { IncidentCard } from "@/components/incident-card";
-import { MapCanvas } from "@/components/map-canvas";
+import { MapCanvas, type MapState } from "@/components/map-canvas";
+import { MapNotice } from "@/components/map-notice";
 import { SourceStatusPills } from "@/components/source-status-pills";
-import { APP_NAME } from "@/lib/config";
+import { AGENCY_ORDER, APP_NAME, PUBLIC_CONFIG } from "@/lib/config";
 import { buildStraightRoute, lineDistanceKm, NO_TIMESTAMP_MINUTES } from "@/lib/geo";
-import { useCommute } from "@/features/commute/use-commute";
 import { useIncidentNotifications } from "@/features/incidents/use-incident-notifications";
+import { useNotificationPreference } from "@/features/incidents/use-notification-preference";
 import { useIncidents } from "@/features/map/use-incidents";
 import type { GeocodeCandidate, Incident, IncidentsResponse } from "@/types";
 
-// Auto-hide incidents older than 6 hours.
+// Incidents older than 6 hours are hidden.
 const FRESHNESS_LIMIT_MINUTES = 360;
-// Corridor width for route-based filtering (km on each side of the straight line).
-const CORRIDOR_KM = 5;
+const MAX_LISTED_INCIDENTS = 12;
 
-// Keywords that indicate a planned, long-term construction event rather than an
-// active incident. These are filtered out automatically.
+// Planned, long-running roadwork is hidden: it is not news to a commuter.
 const LONG_TERM_KEYWORDS = [
   "construction project",
   "improvement project",
@@ -53,16 +49,16 @@ const initialFilters: ActiveFilters = {
   transit: true,
   traffic: true,
   cameras: true,
-  agencies: ["BART", "Muni", "Caltrain", "AC Transit", "VTA", "SamTrans"]
+  agencies: AGENCY_ORDER
 };
 
-interface CommuteWatchAppProps {
+interface OnrampAppProps {
   initialData: IncidentsResponse;
 }
 
-export function CommuteWatchApp({ initialData }: CommuteWatchAppProps) {
+export function OnrampApp({ initialData }: OnrampAppProps) {
   const { data, loading, error, refresh } = useIncidents({ initialData });
-  const { notificationPreference, updateNotificationPreference } = useCommute();
+  const { notificationPreference, updateNotificationPreference } = useNotificationPreference();
   const [filters, setFilters] = useState(initialFilters);
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
   const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null);
@@ -70,48 +66,45 @@ export function CommuteWatchApp({ initialData }: CommuteWatchAppProps) {
   const [locateSignal, setLocateSignal] = useState(0);
   const [corridorOrigin, setCorridorOrigin] = useState<GeocodeCandidate | null>(null);
   const [corridorDestination, setCorridorDestination] = useState<GeocodeCandidate | null>(null);
+  const [mapState, setMapState] = useState<MapState>(
+    PUBLIC_CONFIG.mapboxToken ? "loading" : "missing-token"
+  );
 
   const deferredFilters = useDeferredValue(filters);
 
-  // Pre-compute corridor path once both endpoints are set.
   const corridorPath = useMemo(() => {
     if (!corridorOrigin || !corridorDestination) return null;
-    return buildStraightRoute(
-      corridorOrigin.coordinate,
-      corridorDestination.coordinate,
-      48
-    );
+    return buildStraightRoute(corridorOrigin.coordinate, corridorDestination.coordinate, 48);
   }, [corridorOrigin, corridorDestination]);
 
   const visibleIncidents = useMemo(() => {
     return data.incidents.filter((incident) => {
-      // 6-hour freshness gate; records with no timestamp are always kept.
+      // Records with no timestamp are kept rather than silently dropped.
       const isFresh =
         incident.freshnessMinutes === NO_TIMESTAMP_MINUTES ||
         incident.freshnessMinutes <= FRESHNESS_LIMIT_MINUTES;
       if (!isFresh) return false;
 
-      // Drop long-term planned construction.
       if (isLongTermPlanned(incident)) return false;
 
-      // Layer toggles.
       if (!deferredFilters.transit && incident.isTransit) return false;
       if (!deferredFilters.traffic && incident.isTraffic) return false;
 
-      // Transit agency filter.
+      // Agency chips only filter the agencies they name. Alerts from operators
+      // without a chip ("Other") stay visible instead of disappearing.
       if (
         incident.isTransit &&
-        deferredFilters.agencies.length > 0 &&
+        AGENCY_ORDER.includes(incident.agency) &&
         !deferredFilters.agencies.includes(incident.agency)
       ) {
         return false;
       }
 
-      // Corridor filter — when both endpoints are set, only show incidents
-      // within CORRIDOR_KM of the straight line between them.
-      if (corridorPath) {
-        const dist = lineDistanceKm(incident.coordinate, corridorPath);
-        if (dist > CORRIDOR_KM) return false;
+      if (
+        corridorPath &&
+        lineDistanceKm(incident.coordinate, corridorPath) > PUBLIC_CONFIG.corridorKm
+      ) {
+        return false;
       }
 
       return true;
@@ -121,28 +114,31 @@ export function CommuteWatchApp({ initialData }: CommuteWatchAppProps) {
   const visibleCameras = useMemo(() => {
     if (!deferredFilters.cameras) return [];
     if (!corridorPath) return data.cameras;
-    // When a corridor is active, only show cameras near the route.
     return data.cameras.filter(
-      (camera) => lineDistanceKm(camera.coordinate, corridorPath) <= CORRIDOR_KM
+      (camera) => lineDistanceKm(camera.coordinate, corridorPath) <= PUBLIC_CONFIG.corridorKm
     );
   }, [deferredFilters.cameras, data.cameras, corridorPath]);
 
   const selectedIncident =
     data.incidents.find((incident) => incident.id === selectedIncidentId) ?? null;
-  const selectedCamera =
-    data.cameras.find((camera) => camera.id === selectedCameraId) ?? null;
+  const selectedCamera = data.cameras.find((camera) => camera.id === selectedCameraId) ?? null;
+
+  const selectIncident = (incidentId: string) => {
+    startTransition(() => {
+      setSelectedIncidentId(incidentId);
+      setSelectedCameraId(null);
+    });
+  };
 
   useIncidentNotifications({
     incidents: data.incidents,
     notificationPreference,
-    onSelectIncident: (incidentId) => {
-      startTransition(() => setSelectedIncidentId(incidentId));
-    },
+    onSelectIncident: selectIncident,
     onPreferenceChange: updateNotificationPreference
   });
 
   return (
-    <main className="relative h-screen w-full overflow-hidden bg-[#dbe5ea] text-slate-900">
+    <main className="relative h-dvh w-full overflow-hidden bg-[#dbe5ea] text-slate-900">
       <div className="absolute inset-0">
         <MapCanvas
           incidents={visibleIncidents}
@@ -150,12 +146,8 @@ export function CommuteWatchApp({ initialData }: CommuteWatchAppProps) {
           selectedIncidentId={selectedIncidentId}
           recenterSignal={recenterSignal}
           locateSignal={locateSignal}
-          onSelectIncident={(incidentId) => {
-            startTransition(() => {
-              setSelectedIncidentId(incidentId);
-              setSelectedCameraId(null);
-            });
-          }}
+          onSelectIncident={selectIncident}
+          onMapStateChange={setMapState}
           onSelectCamera={(cameraId) => {
             startTransition(() => {
               setSelectedCameraId(cameraId);
@@ -209,32 +201,32 @@ export function CommuteWatchApp({ initialData }: CommuteWatchAppProps) {
           <div className="flex items-start justify-end gap-3">
             <div className="pointer-events-auto flex flex-wrap items-center justify-end gap-2">
               <SourceStatusPills sourceStatus={data.sourceStatus} />
-              <button
-                type="button"
-                onClick={() => setRecenterSignal((value) => value + 1)}
-                className="cw-reflect-button rounded-[14px] border border-slate-300/80 bg-[rgba(255,255,255,0.84)] px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700 backdrop-blur-xl transition hover:border-slate-400 hover:bg-white"
-              >
-                Center map
-              </button>
-              <button
-                type="button"
-                onClick={() => setLocateSignal((value) => value + 1)}
-                className="cw-reflect-button rounded-[14px] border border-slate-300/80 bg-[rgba(255,255,255,0.84)] px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700 backdrop-blur-xl transition hover:border-slate-400 hover:bg-white"
-              >
-                My location
-              </button>
+              {mapState === "ready" ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setRecenterSignal((value) => value + 1)}
+                    className="cw-reflect-button rounded-[14px] border border-slate-300/80 bg-[rgba(255,255,255,0.84)] px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700 backdrop-blur-xl transition hover:border-slate-400 hover:bg-white"
+                  >
+                    Center map
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLocateSignal((value) => value + 1)}
+                    className="cw-reflect-button rounded-[14px] border border-slate-300/80 bg-[rgba(255,255,255,0.84)] px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700 backdrop-blur-xl transition hover:border-slate-400 hover:bg-white"
+                  >
+                    My location
+                  </button>
+                </>
+              ) : null}
             </div>
           </div>
         </div>
 
         <div className="pointer-events-auto flex flex-col gap-4 lg:max-w-[420px]">
-          {error ? <ErrorState message={error} onRetry={refresh} /> : null}
+          <MapNotice state={mapState} />
 
-          {loading ? (
-            <div className="rounded-[20px] border border-slate-300 bg-[rgba(255,255,255,0.82)] p-5 text-sm text-slate-600 backdrop-blur-xl">
-              Refreshing live incidents…
-            </div>
-          ) : null}
+          {error ? <ErrorState message={error} retrying={loading} onRetry={refresh} /> : null}
 
           {visibleIncidents.length === 0 ? (
             <EmptyState
@@ -242,31 +234,29 @@ export function CommuteWatchApp({ initialData }: CommuteWatchAppProps) {
               description="Try widening the filters or clearing the route filter."
             />
           ) : (
-            <div className="cw-scrollbar-none grid max-h-[38vh] gap-3 overflow-y-auto">
-              {visibleIncidents.slice(0, 12).map((incident) => (
+            <div className="cw-scrollbar-none grid max-h-[38dvh] gap-3 overflow-y-auto overscroll-contain">
+              {visibleIncidents.slice(0, MAX_LISTED_INCIDENTS).map((incident) => (
                 <IncidentCard
                   key={incident.id}
                   incident={incident}
                   selected={incident.id === selectedIncidentId}
-                  onClick={() => {
-                    startTransition(() => setSelectedIncidentId(incident.id));
-                  }}
+                  onClick={() => selectIncident(incident.id)}
                 />
               ))}
+              {visibleIncidents.length > MAX_LISTED_INCIDENTS ? (
+                <p className="px-1 text-xs text-slate-600">
+                  Showing {MAX_LISTED_INCIDENTS} of {visibleIncidents.length}, most severe first.
+                  The map shows all of them.
+                </p>
+              ) : null}
             </div>
           )}
         </div>
       </section>
 
-      <DetailPanel
-        incident={selectedIncident}
-        onClose={() => setSelectedIncidentId(null)}
-      />
+      <DetailPanel incident={selectedIncident} onClose={() => setSelectedIncidentId(null)} />
 
-      <CameraPanel
-        camera={selectedCamera}
-        onClose={() => setSelectedCameraId(null)}
-      />
+      <CameraPanel camera={selectedCamera} onClose={() => setSelectedCameraId(null)} />
     </main>
   );
 }

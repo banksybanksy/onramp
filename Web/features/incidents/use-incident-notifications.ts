@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-import { CommuteStore } from "@/services/commute-store";
+import { NotificationStore } from "@/services/notification-store";
 import { NotificationService } from "@/services/notification-service";
 import type { Incident, NotificationPreference } from "@/types";
 
@@ -11,9 +11,7 @@ interface UseIncidentNotificationsOptions {
   notificationPreference: NotificationPreference | null;
   onSelectIncident: (incidentId: string) => void;
   onPreferenceChange: (
-    updater:
-      | NotificationPreference
-      | ((current: NotificationPreference) => NotificationPreference)
+    updater: NotificationPreference | ((current: NotificationPreference) => NotificationPreference)
   ) => void;
 }
 
@@ -55,7 +53,7 @@ export function useIncidentNotifications({
       notificationPreference,
       incidentToNotify.id
     );
-    CommuteStore.saveNotificationPreference(nextPreference);
+    NotificationStore.saveNotificationPreference(nextPreference);
     onPreferenceChange(nextPreference);
   }, [incidents, notificationPreference, onPreferenceChange, onSelectIncident]);
 }

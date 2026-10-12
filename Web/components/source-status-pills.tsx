@@ -1,56 +1,74 @@
 "use client";
 
-import type { IncidentsResponse } from "@/types";
+import type { IncidentsResponse, SourceStatus } from "@/types";
 
 interface SourceStatusPillsProps {
   sourceStatus: IncidentsResponse["sourceStatus"];
 }
 
-const MODE_STYLES = {
+type PillState = "live" | "partial" | "sample" | "failed";
+
+const PILL_STYLES: Record<PillState, { pill: string; dot: string; text: string; label: string }> = {
   live: {
     pill: "border-emerald-200/80 bg-emerald-50/90",
-    dot: "bg-emerald-500",
+    dot: "bg-emerald-500 motion-safe:animate-pulse",
     text: "text-emerald-800",
     label: "live"
   },
   partial: {
     pill: "border-amber-200/80 bg-amber-50/90",
-    dot: "bg-amber-400",
+    dot: "bg-amber-500",
     text: "text-amber-800",
     label: "partial"
   },
-  fallback: {
+  sample: {
     pill: "border-slate-300/80 bg-white/85",
     dot: "bg-slate-400",
     text: "text-slate-600",
     label: "sample"
+  },
+  // The feed was configured but failed. Sample data is on screen, and the pill
+  // must not read like a quiet road.
+  failed: {
+    pill: "border-rose-200/80 bg-rose-50/90",
+    dot: "bg-rose-500",
+    text: "text-rose-800",
+    label: "failed"
   }
-} as const;
+};
+
+function pillState(status: SourceStatus): PillState {
+  if (status.mode === "fallback") {
+    return status.ok ? "sample" : "failed";
+  }
+
+  return status.mode;
+}
 
 export function SourceStatusPills({ sourceStatus }: SourceStatusPillsProps) {
-  const statuses = Object.values(sourceStatus).filter((s) => s.mode in MODE_STYLES);
-
-  if (statuses.length === 0) return null;
-
   return (
-    <div className="flex flex-wrap justify-end gap-2">
-      {statuses.map((status) => {
-        const styles = MODE_STYLES[status.mode as keyof typeof MODE_STYLES];
+    <ul aria-label="Data sources" className="flex flex-wrap justify-end gap-2">
+      {Object.values(sourceStatus).map((status) => {
+        const styles = PILL_STYLES[pillState(status)];
         return (
-          <div
+          <li
             key={status.key}
-            className={`cw-reflect-button flex items-center gap-1.5 rounded-[14px] border px-3 py-2 backdrop-blur-lg ${styles.pill}`}
+            className={`flex items-center gap-1.5 rounded-[14px] border px-3 py-2 backdrop-blur-lg ${styles.pill}`}
             title={status.message}
           >
             <span
-              className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${styles.dot} ${status.mode === "live" ? "animate-pulse" : ""}`}
+              aria-hidden="true"
+              className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${styles.dot}`}
             />
-            <span className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${styles.text}`}>
+            <span
+              className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${styles.text}`}
+            >
               {status.label} {styles.label}
             </span>
-          </div>
+            {status.message ? <span className="sr-only">: {status.message}</span> : null}
+          </li>
         );
       })}
-    </div>
+    </ul>
   );
 }

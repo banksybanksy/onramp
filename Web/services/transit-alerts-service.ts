@@ -2,16 +2,13 @@ import { AGENCY_DEFAULT_COORDINATES, SERVER_CONFIG } from "@/lib/config";
 import { computeFreshnessMinutes, resolveCoordinateFromText } from "@/lib/geo";
 import { logger } from "@/lib/logger";
 import { getSampleTransitAlerts } from "@/lib/sample-data";
+import { getArrayOfRecords, getRecord, type UnknownRecord } from "@/lib/records";
 import { pickFirstString, toArray, uniqueBy } from "@/lib/utils";
 import { fetchJson } from "@/services/fetch-json";
+import { describeFailure, resolveSource } from "@/services/source-status";
 import type { Agency, ServiceResult, TransitAlert } from "@/types";
 
-type TransitPayload = Record<string, unknown> | unknown[];
-
-function getActivePeriodField(
-  item: Record<string, unknown>,
-  field: "start" | "end"
-) {
+function getActivePeriodField(item: UnknownRecord, field: "start" | "end") {
   const activePeriods = item.active_period;
   if (!Array.isArray(activePeriods)) {
     return undefined;
@@ -22,7 +19,7 @@ function getActivePeriodField(
     return undefined;
   }
 
-  return (first as Record<string, unknown>)[field];
+  return (first as UnknownRecord)[field];
 }
 
 function normalizeAgency(input: unknown, fallback: Agency): Agency {
@@ -122,55 +119,40 @@ function getNestedText(value: unknown) {
     return value;
   }
 
-  if (
-    value &&
-    typeof value === "object" &&
-    "translation" in value &&
-    Array.isArray((value as { translation?: unknown[] }).translation)
-  ) {
-    const first = (value as { translation: Array<{ text?: string }> }).translation[0];
-    return first?.text ?? "";
-  }
-
-  return "";
+  // GTFS-Realtime wraps text as { translation: [{ text, language }] }.
+  const translations = getArrayOfRecords(getRecord(value)?.translation);
+  const english =
+    translations.find((entry) => !entry.language || String(entry.language).startsWith("en")) ??
+    translations[0];
+  return typeof english?.text === "string" ? english.text : "";
 }
 
-function getRecord(value: unknown) {
-  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
-}
-
-function getArrayOfRecords(value: unknown) {
-  if (!Array.isArray(value)) {
-    return [] as Record<string, unknown>[];
-  }
-
-  return value
-    .map((item) => getRecord(item))
-    .filter((item): item is Record<string, unknown> => Boolean(item));
-}
-
-function getInformEntityRecords(item: Record<string, unknown>) {
+function getInformEntityRecords(item: UnknownRecord) {
   return [
     ...getArrayOfRecords(item.informedEntities),
     ...getArrayOfRecords(item.informed_entities),
+    ...getArrayOfRecords(item.informed_entity),
     ...getArrayOfRecords(item.informedEntity)
   ];
 }
 
-function getNestedTimeValue(value: unknown) {
-  if (typeof value === "string" || typeof value === "number") {
-    return String(value);
-  }
-
+// GTFS-Realtime times are POSIX seconds, sometimes as strings or protobuf
+// Long objects ({ low, high }). Convert them to ISO so freshness can be computed.
+function getNestedTimeValue(value: unknown): string | undefined {
   const record = getRecord(value);
-  if (!record) {
-    return undefined;
+  const raw = record ? (record.low ?? record.time) : value;
+
+  if (typeof raw === "number" || (typeof raw === "string" && /^\d+$/.test(raw.trim()))) {
+    const value = Number(raw);
+    // Some feeds send milliseconds; anything past 1e11 is not a plausible seconds value.
+    const ms = value > 1e11 ? value : value * 1000;
+    return value > 0 ? new Date(ms).toISOString() : undefined;
   }
 
-  return pickFirstString(record.low, record.high, record.time);
+  return typeof raw === "string" && raw.trim() ? raw.trim() : undefined;
 }
 
-function normalizeTransitEntity(item: Record<string, unknown>, fallbackAgency: Agency) {
+export function normalizeTransitEntity(item: UnknownRecord, fallbackAgency: Agency) {
   const informedEntities = getInformEntityRecords(item);
   const title = pickFirstString(
     item.title,
@@ -191,12 +173,7 @@ function normalizeTransitEntity(item: Record<string, unknown>, fallbackAgency: A
   );
 
   const agency = normalizeAgencyId(
-    item.agency ??
-      item.agency_id ??
-      item.operator ??
-      item.source ??
-      title ??
-      description,
+    item.agency ?? item.agency_id ?? item.operator ?? item.source ?? title ?? description,
     detectedAgency
   );
   const coordinate =
@@ -228,9 +205,7 @@ function normalizeTransitEntity(item: Record<string, unknown>, fallbackAgency: A
     title: title || `${agency} Service Advisory`,
     subtitle: pickFirstString(item.subtitle, item.source, item.effect, "Transit service update"),
     description,
-    severity: normalizeSeverity(
-      item.severity ?? item.severity_level ?? item.effect ?? item.cause
-    ),
+    severity: normalizeSeverity(item.severity ?? item.severity_level ?? item.effect ?? item.cause),
     coordinate: safeCoordinate,
     affectedRoutes: uniqueBy(
       [
@@ -258,144 +233,61 @@ function normalizeTransitEntity(item: Record<string, unknown>, fallbackAgency: A
       item.validUntilTime,
       getNestedTimeValue(getActivePeriodField(item, "end"))
     ),
-    url: pickFirstString(
-      item.url,
-      item.link,
-      item.moreInfoUrl,
-      getRecord(item.cause_detail)?.url
-    ),
+    url: pickFirstString(item.url, item.link, item.moreInfoUrl, getRecord(item.cause_detail)?.url),
     source: pickFirstString(item.source, "511 SF Bay Transit Service Alerts")
   } satisfies TransitAlert;
 }
 
-function extractTransitEntities(payload: TransitPayload) {
+/** Accepts a bare array, `{ alerts: [...] }`, or the GTFS-Realtime `{ entity: [{ id, alert }] }` shape. */
+export function extractTransitEntities(payload: unknown): UnknownRecord[] {
   if (Array.isArray(payload)) {
-    return payload.filter((item): item is Record<string, unknown> => !!item && typeof item === "object");
+    return getArrayOfRecords(payload);
   }
 
-  if ("alerts" in payload && Array.isArray(payload.alerts)) {
-    return payload.alerts.filter(
-      (item): item is Record<string, unknown> => !!item && typeof item === "object"
-    );
+  const record = getRecord(payload);
+  if (Array.isArray(record?.alerts)) {
+    return getArrayOfRecords(record.alerts);
   }
 
-  if ("entity" in payload && Array.isArray(payload.entity)) {
-    return payload.entity.flatMap((entity) => {
-      if (!entity || typeof entity !== "object" || !("alert" in entity)) {
-        return [];
-      }
-
-      return [
-        {
-          ...((entity as { alert?: Record<string, unknown> }).alert ?? {}),
-          entity_id: (entity as { id?: unknown }).id
-        } satisfies Record<string, unknown>
-      ];
-    });
-  }
-
-  return [];
+  return getArrayOfRecords(record?.entity).flatMap((entity) => {
+    const alert = getRecord(entity.alert);
+    return alert ? [{ ...alert, entity_id: entity.id }] : [];
+  });
 }
 
 export class TransitAlertsService {
   async getTransitAlerts(): Promise<ServiceResult<TransitAlert[]>> {
-    const configuredFeeds = SERVER_CONFIG.transitFeeds.filter((feed) => !!feed.url);
-
-    if (configuredFeeds.length === 0) {
-      const sampleAlerts = getSampleTransitAlerts().map((alert) => ({
-        ...alert,
-        source: alert.source || "Sample Transit Feed"
-      }));
-      return {
-        data: sampleAlerts,
-        sourceStatus: {
-          key: "transit",
-          label: "Transit",
-          ok: true,
-          mode: "fallback",
-          itemCount: sampleAlerts.length,
-          updatedAt: new Date().toISOString(),
-          message:
-            "Using bundled transit sample data. Add BAY_511_API_KEY to enable official 511 SF Bay transit alerts."
-        },
-        warnings: []
-      };
-    }
-
-    const warnings: string[] = [];
+    const feeds = SERVER_CONFIG.transitFeeds;
+    const failures: string[] = [];
 
     const settled = await Promise.allSettled(
-      configuredFeeds.map(async (feed) => {
-        const payload = await fetchJson<TransitPayload>(feed.url!);
-        return extractTransitEntities(payload).map((item) => {
-          const record = item as Record<string, unknown>;
-          return normalizeTransitEntity(
-            {
-              ...record,
-              source: record.source ?? feed.url
-            },
-            feed.agency
-          );
-        });
+      feeds.map(async (feed) => {
+        const payload = await fetchJson<unknown>(feed.url!);
+        return extractTransitEntities(payload).map((item) =>
+          normalizeTransitEntity(item, feed.agency)
+        );
       })
     );
 
-    const liveAlerts = settled.flatMap((result, index) => {
+    const liveAlerts = settled.flatMap((result) => {
       if (result.status === "fulfilled") {
         return result.value;
       }
 
-      const failedFeed = configuredFeeds[index];
-      logger.warn(
-        "TransitAlertsService",
-        `Falling back for ${failedFeed.agency} feed`,
-        result.reason
-      );
-      warnings.push(`${failedFeed.agency} feed failed: ${String(result.reason)}`);
+      logger.warn("TransitAlertsService", "Transit feed failed", result.reason);
+      failures.push(`Transit feed failed: ${describeFailure(result.reason)}.`);
       return [];
     });
 
-    const uniqueAlerts = uniqueBy(liveAlerts, (alert) => alert.id).sort((a, b) => {
-      return computeFreshnessMinutes(a.startTime) - computeFreshnessMinutes(b.startTime);
+    return resolveSource({
+      key: "transit",
+      endpoints: feeds.map((feed) => feed.url!),
+      liveItems: uniqueBy(liveAlerts, (alert) => alert.id).sort(
+        (a, b) => computeFreshnessMinutes(a.startTime) - computeFreshnessMinutes(b.startTime)
+      ),
+      failures,
+      getSample: getSampleTransitAlerts,
+      unconfiguredMessage: "Sample data. Set BAY_511_API_KEY for live 511 transit alerts."
     });
-
-    if (uniqueAlerts.length === 0) {
-      const sampleAlerts = getSampleTransitAlerts();
-      return {
-        data: sampleAlerts,
-        sourceStatus: {
-          key: "transit",
-          label: "Transit",
-          ok: false,
-          mode: "fallback",
-          itemCount: sampleAlerts.length,
-          updatedAt: new Date().toISOString(),
-          message:
-            warnings[0] ??
-            "Configured transit feeds did not return usable alert data. Showing sample alerts."
-        },
-        warnings
-      };
-    }
-
-    // Partial mode when some feeds failed but at least one returned data.
-    const isPartial = warnings.length > 0;
-
-    return {
-      data: uniqueAlerts,
-      sourceStatus: {
-        key: "transit",
-        label: "Transit",
-        ok: true,
-        mode: isPartial ? "partial" : "live",
-        itemCount: uniqueAlerts.length,
-        updatedAt: new Date().toISOString(),
-        endpoint: configuredFeeds.map((feed) => feed.url).join(", "),
-        message: isPartial
-          ? `Live transit active with degraded feeds: ${warnings.join(" | ")}`
-          : "Live transit feeds active"
-      },
-      warnings
-    };
   }
 }

@@ -1,7 +1,6 @@
 import MapKit
 
 enum AppConfig {
-    static let appName = "CommuteWatch"
     static let freshnessLimitMinutes = 360
     static let noTimestampSentinel = 9_000
     static let cameraAssociationRadiusKilometers = 3.5

@@ -17,7 +17,6 @@ interface FilterChipsRowProps {
   onToggleAgency: (agency: Agency) => void;
 }
 
-
 const LAYER_BUTTONS: Array<{
   key: keyof Omit<ActiveFilters, "agencies">;
   label: string;
@@ -54,9 +53,10 @@ function LayerButton({
   return (
     <button
       type="button"
+      aria-pressed={active}
       onClick={onClick}
       className={cn(
-        "cw-reflect-button h-8 rounded-full border px-4 text-[12px] font-semibold tracking-[0.01em] transition-all duration-200",
+        "cw-reflect-button h-8 rounded-full border px-4 text-[12px] font-semibold tracking-[0.01em] transition",
         active
           ? activeClass
           : "border-slate-200 bg-white/80 text-slate-500 hover:border-slate-300 hover:text-slate-700"
@@ -79,9 +79,10 @@ function AgencyChip({
   return (
     <button
       type="button"
+      aria-pressed={active}
       onClick={onClick}
       className={cn(
-        "cw-reflect-button h-7 rounded-full border px-3 text-[11px] font-medium tracking-[0.01em] transition-all duration-200",
+        "cw-reflect-button h-7 rounded-full border px-3 text-[11px] font-medium tracking-[0.01em] transition",
         active
           ? "border-blue-500/80 bg-blue-50 text-blue-700"
           : "border-slate-200/80 bg-white/60 text-slate-500 hover:border-slate-300 hover:text-slate-700"
@@ -92,16 +93,11 @@ function AgencyChip({
   );
 }
 
-export function FilterChipsRow({
-  filters,
-  onToggleFilter,
-  onToggleAgency
-}: FilterChipsRowProps) {
+export function FilterChipsRow({ filters, onToggleFilter, onToggleAgency }: FilterChipsRowProps) {
   const allAgenciesOn = AGENCY_ORDER.every((a) => filters.agencies.includes(a));
 
   const handleToggleAllAgencies = () => {
     if (allAgenciesOn) {
-      // Deselect all — keep at least one to avoid empty filter
       AGENCY_ORDER.forEach((a) => {
         if (filters.agencies.includes(a)) onToggleAgency(a);
       });
@@ -114,7 +110,6 @@ export function FilterChipsRow({
 
   return (
     <div className="space-y-3">
-      {/* Layer toggles */}
       <div className="flex flex-wrap gap-2">
         {LAYER_BUTTONS.map(({ key, label, activeClass }) => (
           <LayerButton
@@ -127,11 +122,13 @@ export function FilterChipsRow({
         ))}
       </div>
 
-      {/* Transit agency sub-filter — slides in when Transit is active */}
+      {/* Agency chips only apply to transit, so they collapse with it. `inert`
+          keeps the hidden chips out of the tab order. */}
       <div
+        inert={!filters.transit}
         className={cn(
-          "overflow-hidden transition-all duration-300 ease-in-out",
-          filters.transit ? "max-h-24 opacity-100" : "max-h-0 opacity-0"
+          "overflow-hidden transition-[max-height,opacity] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none",
+          filters.transit ? "max-h-40 opacity-100" : "max-h-0 opacity-0"
         )}
       >
         <div className="pt-0.5">

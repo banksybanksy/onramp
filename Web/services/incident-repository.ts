@@ -1,4 +1,4 @@
-import { findNearestCamera, computeFreshnessMinutes } from "@/lib/geo";
+import { computeFreshnessMinutes, findNearestCamera, severityWeight } from "@/lib/geo";
 import { uniqueBy } from "@/lib/utils";
 import { CameraService } from "@/services/camera-service";
 import { TrafficIncidentsService } from "@/services/traffic-incidents-service";
@@ -74,9 +74,9 @@ export class IncidentRepository {
       })
     ]
       .sort((a, b) => {
-        const severityWeight = { critical: 3, major: 2, minor: 1 };
-        if (severityWeight[b.severity] !== severityWeight[a.severity]) {
-          return severityWeight[b.severity] - severityWeight[a.severity];
+        const bySeverity = severityWeight(b.severity) - severityWeight(a.severity);
+        if (bySeverity !== 0) {
+          return bySeverity;
         }
         return a.freshnessMinutes - b.freshnessMinutes;
       })

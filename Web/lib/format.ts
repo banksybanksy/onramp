@@ -34,11 +34,3 @@ export function formatRelativeMinutes(minutes: number) {
   const hours = Math.round(minutes / 60);
   return `Updated ${hours}h ago`;
 }
-
-export function formatDistanceKm(distanceKm: number) {
-  if (distanceKm < 1) {
-    return `${Math.round(distanceKm * 1000)} m`;
-  }
-
-  return `${distanceKm.toFixed(distanceKm < 10 ? 1 : 0)} km`;
-}

@@ -3,28 +3,25 @@ import trafficIncidentsRaw from "@/sample-data/traffic-incidents.json";
 import transitAlertsRaw from "@/sample-data/transit-alerts.json";
 import type { CameraFeed, TrafficIncident, TransitAlert } from "@/types";
 
-// Stagger offsets so incidents appear recently-started, not stale.
-// Each item is offset by (baseMinutes + index * stepMinutes) minutes in the past.
+// Sample records are re-dated on every request so they always look recent:
+// item i starts (8 + 12i) minutes ago. Otherwise the 6-hour freshness filter
+// would hide them all.
 const SAMPLE_BASE_OFFSET_MINUTES = 8;
 const SAMPLE_STEP_MINUTES = 12;
 
-function freshenTimestamps<
-  T extends { startTime?: string; endTime?: string; updatedAt?: string }
->(items: T[]): T[] {
+function freshenTimestamps<T extends { startTime?: string; endTime?: string; updatedAt?: string }>(
+  items: T[]
+): T[] {
   const now = Date.now();
   return items.map((item, index) => {
     const offsetMs = (SAMPLE_BASE_OFFSET_MINUTES + index * SAMPLE_STEP_MINUTES) * 60_000;
     const startMs = now - offsetMs;
     // Keep the fixture's original duration so endTime never lands before startTime.
     const durationMs =
-      item.startTime && item.endTime
-        ? Date.parse(item.endTime) - Date.parse(item.startTime)
-        : NaN;
+      item.startTime && item.endTime ? Date.parse(item.endTime) - Date.parse(item.startTime) : NaN;
     return {
       ...item,
-      ...(item.startTime !== undefined
-        ? { startTime: new Date(startMs).toISOString() }
-        : {}),
+      ...(item.startTime !== undefined ? { startTime: new Date(startMs).toISOString() } : {}),
       ...(item.endTime !== undefined
         ? {
             endTime: Number.isFinite(durationMs)
@@ -50,9 +47,3 @@ export function getSampleTrafficIncidents(): TrafficIncident[] {
 export function getSampleCameras(): CameraFeed[] {
   return freshenTimestamps(cameraFeedRaw as CameraFeed[]);
 }
-
-// Legacy exports kept for any direct imports that expect constants.
-// These are computed once at module load, which is fine for build-time use.
-export const SAMPLE_TRANSIT_ALERTS = getSampleTransitAlerts();
-export const SAMPLE_TRAFFIC_INCIDENTS = getSampleTrafficIncidents();
-export const SAMPLE_CAMERAS = getSampleCameras();

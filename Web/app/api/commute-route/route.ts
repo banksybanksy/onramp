@@ -10,7 +10,9 @@ function isCoordinate(value: unknown): value is Coordinate {
   return (
     !!candidate &&
     Number.isFinite(candidate.lat) &&
-    Number.isFinite(candidate.lng)
+    Number.isFinite(candidate.lng) &&
+    Math.abs(candidate.lat!) <= 90 &&
+    Math.abs(candidate.lng!) <= 180
   );
 }
 

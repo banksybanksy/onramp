@@ -25,18 +25,18 @@ export function useIncidents({ initialData }: UseIncidentsOptions) {
     try {
       const response = await fetch("/api/incidents", { cache: "no-store" });
       if (!response.ok) {
-        throw new Error(`Failed to load incidents (${response.status})`);
+        throw new Error(`Incidents request returned ${response.status}`);
       }
 
       const payload = (await response.json()) as IncidentsResponse;
+      if (!Array.isArray(payload?.incidents) || !Array.isArray(payload.cameras)) {
+        throw new Error("Incidents response was malformed");
+      }
+
       setData(payload);
       setError(null);
     } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Unable to refresh live incidents"
-      );
+      setError(requestError instanceof Error ? requestError.message : "Couldn't refresh incidents");
     } finally {
       setLoading(false);
       isFetchingRef.current = false;

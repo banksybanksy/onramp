@@ -19,7 +19,8 @@ export function IncidentCard({ incident, selected = false, onClick }: IncidentCa
       onClick={onClick}
       className={cn(
         "group w-full rounded-[20px] border border-slate-300/55 bg-[rgba(255,255,255,0.58)] p-4 text-left shadow-[0_10px_26px_rgba(50,66,87,0.08)] backdrop-blur-md transition hover:border-slate-400/80 hover:bg-[rgba(255,255,255,0.74)]",
-        selected && "border-slate-500 bg-[rgba(255,255,255,0.88)] shadow-[0_16px_36px_rgba(50,66,87,0.14)]"
+        selected &&
+          "border-slate-500 bg-[rgba(255,255,255,0.88)] shadow-[0_16px_36px_rgba(50,66,87,0.14)]"
       )}
     >
       <div className="flex items-start justify-between gap-3">
