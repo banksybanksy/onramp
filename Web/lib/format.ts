@@ -1,3 +1,5 @@
+import { NO_TIMESTAMP_MINUTES } from "@/lib/geo";
+
 export function formatTimestamp(iso?: string) {
   if (!iso) {
     return "Unknown";
@@ -17,6 +19,10 @@ export function formatTimestamp(iso?: string) {
 }
 
 export function formatRelativeMinutes(minutes: number) {
+  if (minutes >= NO_TIMESTAMP_MINUTES) {
+    return "Time not reported";
+  }
+
   if (minutes < 1) {
     return "Updated just now";
   }

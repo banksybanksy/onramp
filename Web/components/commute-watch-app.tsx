@@ -15,7 +15,7 @@ import { IncidentCard } from "@/components/incident-card";
 import { MapCanvas } from "@/components/map-canvas";
 import { SourceStatusPills } from "@/components/source-status-pills";
 import { APP_NAME } from "@/lib/config";
-import { buildStraightRoute, lineDistanceKm } from "@/lib/geo";
+import { buildStraightRoute, lineDistanceKm, NO_TIMESTAMP_MINUTES } from "@/lib/geo";
 import { useCommute } from "@/features/commute/use-commute";
 import { useIncidentNotifications } from "@/features/incidents/use-incident-notifications";
 import { useIncidents } from "@/features/map/use-incidents";
@@ -23,8 +23,6 @@ import type { GeocodeCandidate, Incident, IncidentsResponse } from "@/types";
 
 // Auto-hide incidents older than 6 hours.
 const FRESHNESS_LIMIT_MINUTES = 360;
-// freshnessMinutes sentinel for "no timestamp" — always keep these.
-const NO_TIMESTAMP_SENTINEL = 9000;
 // Corridor width for route-based filtering (km on each side of the straight line).
 const CORRIDOR_KM = 5;
 
@@ -87,9 +85,9 @@ export function CommuteWatchApp({ initialData }: CommuteWatchAppProps) {
 
   const visibleIncidents = useMemo(() => {
     return data.incidents.filter((incident) => {
-      // 6-hour freshness gate.
+      // 6-hour freshness gate; records with no timestamp are always kept.
       const isFresh =
-        incident.freshnessMinutes >= NO_TIMESTAMP_SENTINEL ||
+        incident.freshnessMinutes === NO_TIMESTAMP_MINUTES ||
         incident.freshnessMinutes <= FRESHNESS_LIMIT_MINUTES;
       if (!isFresh) return false;
 

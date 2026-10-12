@@ -25,7 +25,8 @@ export function IncidentCard({ incident, selected = false, onClick }: IncidentCa
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate font-mono text-[10px] uppercase tracking-[0.24em] text-slate-500">
-            {incident.agency} • {incident.isTransit ? "Transit" : "Traffic"}
+            {incident.agency !== "Other" ? `${incident.agency} • ` : ""}
+            {incident.isTransit ? "Transit" : "Traffic"}
           </p>
           <h3 className="mt-2 text-sm font-semibold text-slate-900">{incident.title}</h3>
           <p className="mt-1 line-clamp-2 text-sm text-slate-600">{incident.subtitle}</p>

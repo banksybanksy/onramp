@@ -21,7 +21,11 @@ export const MapStateService = {
       return;
     }
 
-    window.localStorage.setItem(VIEWPORT_STORAGE_KEY, JSON.stringify(viewport));
+    try {
+      window.localStorage.setItem(VIEWPORT_STORAGE_KEY, JSON.stringify(viewport));
+    } catch {
+      // Storage can be unavailable (private mode, quota); the viewport just won't persist.
+    }
   },
   loadViewport() {
     if (typeof window === "undefined") {

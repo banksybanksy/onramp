@@ -41,7 +41,9 @@ export class IncidentRepository {
           isTraffic: false,
           rawSourceType: "transit",
           freshnessMinutes: computeFreshnessMinutes(alert.startTime),
-          relevanceScore: 0
+          relevanceScore: 0,
+          affectsMyCommute: false,
+          commuteReasons: []
         } satisfies Incident;
       }),
       ...traffic.data.map((incident) => {
@@ -65,7 +67,9 @@ export class IncidentRepository {
           isTraffic: true,
           rawSourceType: "traffic",
           freshnessMinutes: computeFreshnessMinutes(incident.startTime),
-          relevanceScore: 0
+          relevanceScore: 0,
+          affectsMyCommute: false,
+          commuteReasons: []
         } satisfies Incident;
       })
     ]

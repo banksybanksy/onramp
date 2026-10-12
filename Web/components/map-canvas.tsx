@@ -453,13 +453,15 @@ export function MapCanvas({
   return (
     <div className="relative h-full w-full">
       <div ref={containerRef} className="h-full w-full" />
-      {!hasToken ? (
-        <div className="pointer-events-none absolute bottom-5 left-5 rounded-[20px] border border-amber-200 bg-[rgba(255,250,240,0.96)] px-4 py-3 text-sm text-amber-800 shadow-[0_10px_30px_rgba(120,73,0,0.14)] backdrop-blur-xl">
+      {!hasToken || (mapMode === "error" && !mapReady) ? (
+        <div className="pointer-events-none absolute bottom-5 right-5 rounded-[20px] border border-amber-200 bg-[rgba(255,250,240,0.96)] px-4 py-3 text-sm text-amber-800 shadow-[0_10px_30px_rgba(120,73,0,0.14)] backdrop-blur-xl">
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-amber-700">
-            Mapbox token needed
+            {hasToken ? "Map failed to load" : "Mapbox token needed"}
           </p>
           <p className="mt-1 max-w-xs">
-            Add `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` in `.env.local` to render the map.
+            {hasToken
+              ? "Check that NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN is a valid public token for this domain."
+              : "Add NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN in .env.local to render the map."}
           </p>
         </div>
       ) : null}

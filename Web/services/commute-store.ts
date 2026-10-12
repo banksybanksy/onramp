@@ -35,7 +35,11 @@ function writeJson<T>(key: string, value: T) {
     return;
   }
 
-  window.localStorage.setItem(key, JSON.stringify(value));
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Storage can be unavailable (private mode, quota); the preference just won't persist.
+  }
 }
 
 export const CommuteStore = {

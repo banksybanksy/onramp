@@ -18,19 +18,23 @@ const MODE_STYLES = {
     dot: "bg-amber-400",
     text: "text-amber-800",
     label: "partial"
+  },
+  fallback: {
+    pill: "border-slate-300/80 bg-white/85",
+    dot: "bg-slate-400",
+    text: "text-slate-600",
+    label: "sample"
   }
 } as const;
 
 export function SourceStatusPills({ sourceStatus }: SourceStatusPillsProps) {
-  const liveStatuses = Object.values(sourceStatus).filter(
-    (s) => s.mode === "live" || s.mode === "partial"
-  );
+  const statuses = Object.values(sourceStatus).filter((s) => s.mode in MODE_STYLES);
 
-  if (liveStatuses.length === 0) return null;
+  if (statuses.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap gap-2">
-      {liveStatuses.map((status) => {
+    <div className="flex flex-wrap justify-end gap-2">
+      {statuses.map((status) => {
         const styles = MODE_STYLES[status.mode as keyof typeof MODE_STYLES];
         return (
           <div

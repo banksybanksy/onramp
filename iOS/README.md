@@ -1,6 +1,6 @@
 # CommuteWatch iOS
 
-This folder adds the first native iOS foundation for CommuteWatch alongside the existing `/web` app.
+This folder adds the first native iOS foundation for CommuteWatch alongside the existing `Web/` app.
 
 ## What was created
 
@@ -24,9 +24,9 @@ This folder adds the first native iOS foundation for CommuteWatch alongside the 
 - Preview support through `PreviewFixtures`
 - Mirrored sample JSON under `Resources/SampleData/`
 
-## How this mirrors `/web`
+## How this mirrors `Web/`
 
-The native structure follows the current `/web` implementation rather than inventing a different product model:
+The native structure follows the current `Web/` implementation rather than inventing a different product model:
 
 - The same main domain nouns are kept: `Incident`, `TransitAlert`, `TrafficIncident`, `CameraFeed`, `Agency`, `Severity`, and `SourceStatus`.
 - Incident assembly follows the web repository pattern:
