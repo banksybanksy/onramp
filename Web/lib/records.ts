@@ -8,6 +8,30 @@ export function getRecord(value: unknown): UnknownRecord | null {
     : null;
 }
 
+/**
+ * Lowercases the first letter of every key, recursively. 511's JSON service
+ * alerts use PascalCase (`Entity`, `Alert`, `HeaderText`); after this they read
+ * like the camelCase variants the normalizers already handle. snake_case keys
+ * are unchanged.
+ */
+export function camelizeKeys(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(camelizeKeys);
+  }
+
+  const record = getRecord(value);
+  if (!record) {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(record).map(([key, child]) => [
+      key.charAt(0).toLowerCase() + key.slice(1),
+      camelizeKeys(child)
+    ])
+  );
+}
+
 export function getArrayOfRecords(value: unknown): UnknownRecord[] {
   if (!Array.isArray(value)) {
     return [];

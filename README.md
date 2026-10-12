@@ -4,7 +4,7 @@ Onramp puts Bay Area traffic incidents, transit alerts and freeway cameras on on
 
 ![The web app with live 511 traffic and Caltrans cameras on the map](docs/screenshots/overview.jpg)
 
-<sub>Captured with live keys, before the app was renamed from its working title, CommuteWatch.</sub>
+<sub>Captured October 12, 2026 with live 511 and Caltrans feeds. Conditions change constantly.</sub>
 
 ## How it works
 
@@ -60,7 +60,7 @@ iOS client: open `iOS/CommuteWatch.xcodeproj` in Xcode and run on a simulator. I
 
 ## More screenshots
 
-Incident detail with the nearest camera:
+Lane closure on the Bay Bridge approach, with the nearest Caltrans camera:
 
 ![Incident detail with nearby camera](docs/screenshots/incident-detail.jpg)
 

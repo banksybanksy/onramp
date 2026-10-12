@@ -2,14 +2,14 @@ import { AGENCY_DEFAULT_COORDINATES, SERVER_CONFIG } from "@/lib/config";
 import { computeFreshnessMinutes, resolveCoordinateFromText } from "@/lib/geo";
 import { logger } from "@/lib/logger";
 import { getSampleTransitAlerts } from "@/lib/sample-data";
-import { getArrayOfRecords, getRecord, type UnknownRecord } from "@/lib/records";
+import { camelizeKeys, getArrayOfRecords, getRecord, type UnknownRecord } from "@/lib/records";
 import { pickFirstString, toArray, uniqueBy } from "@/lib/utils";
 import { fetchJson } from "@/services/fetch-json";
 import { describeFailure, resolveSource } from "@/services/source-status";
 import type { Agency, ServiceResult, TransitAlert } from "@/types";
 
 function getActivePeriodField(item: UnknownRecord, field: "start" | "end") {
-  const activePeriods = item.active_period;
+  const activePeriods = item.active_period ?? item.activePeriod;
   if (!Array.isArray(activePeriods)) {
     return undefined;
   }
@@ -114,6 +114,42 @@ function normalizeSeverity(input: unknown): TransitAlert["severity"] {
   return "minor";
 }
 
+// GTFS-Realtime Alert.Effect, as its enum name or numeric value.
+const EFFECT_SEVERITY: Record<string, TransitAlert["severity"]> = {
+  NO_SERVICE: "critical",
+  "1": "critical",
+  REDUCED_SERVICE: "major",
+  "2": "major",
+  SIGNIFICANT_DELAYS: "major",
+  "3": "major",
+  DETOUR: "major",
+  "4": "major",
+  MODIFIED_SERVICE: "major",
+  "6": "major"
+};
+
+function getSeverity(item: UnknownRecord): TransitAlert["severity"] {
+  const explicit = item.severity ?? item.severity_level;
+  if (explicit !== undefined && explicit !== null && explicit !== "") {
+    return normalizeSeverity(explicit);
+  }
+
+  const effect = item.effect;
+  if (typeof effect === "number" || typeof effect === "string") {
+    const severity =
+      EFFECT_SEVERITY[String(effect).trim().toUpperCase()] ?? normalizeSeverity(String(effect));
+
+    // NO_SERVICE where every informed entity names a stop (alone or on a route)
+    // is a closed stop, not a line outage.
+    const entities = getInformEntityRecords(item);
+    const stopsOnly =
+      entities.length > 0 && entities.every((entity) => entity.stopId ?? entity.stop_id);
+    return severity === "critical" && stopsOnly ? "major" : severity;
+  }
+
+  return "minor";
+}
+
 function getNestedText(value: unknown) {
   if (typeof value === "string") {
     return value;
@@ -205,7 +241,7 @@ export function normalizeTransitEntity(item: UnknownRecord, fallbackAgency: Agen
     title: title || `${agency} Service Advisory`,
     subtitle: pickFirstString(item.subtitle, item.source, item.effect, "Transit service update"),
     description,
-    severity: normalizeSeverity(item.severity ?? item.severity_level ?? item.effect ?? item.cause),
+    severity: getSeverity(item),
     coordinate: safeCoordinate,
     affectedRoutes: uniqueBy(
       [
@@ -233,13 +269,23 @@ export function normalizeTransitEntity(item: UnknownRecord, fallbackAgency: Agen
       item.validUntilTime,
       getNestedTimeValue(getActivePeriodField(item, "end"))
     ),
-    url: pickFirstString(item.url, item.link, item.moreInfoUrl, getRecord(item.cause_detail)?.url),
+    url: pickFirstString(
+      item.url,
+      getNestedText(item.url),
+      item.link,
+      item.moreInfoUrl,
+      getRecord(item.cause_detail)?.url
+    ),
     source: pickFirstString(item.source, "511 SF Bay Transit Service Alerts")
   } satisfies TransitAlert;
 }
 
-/** Accepts a bare array, `{ alerts: [...] }`, or the GTFS-Realtime `{ entity: [{ id, alert }] }` shape. */
-export function extractTransitEntities(payload: unknown): UnknownRecord[] {
+/**
+ * Accepts a bare array, `{ alerts: [...] }`, or the GTFS-Realtime
+ * `{ entity: [{ id, alert }] }` shape, including 511's PascalCase JSON of it.
+ */
+export function extractTransitEntities(input: unknown): UnknownRecord[] {
+  const payload = camelizeKeys(input);
   if (Array.isArray(payload)) {
     return getArrayOfRecords(payload);
   }

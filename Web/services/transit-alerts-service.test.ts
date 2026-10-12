@@ -4,6 +4,7 @@ import { AGENCY_DEFAULT_COORDINATES } from "@/lib/config";
 import {
   alertsArrayPayload,
   bareArrayPayload,
+  bay511JsonPayload,
   gtfsRealtimePayload
 } from "@/services/__fixtures__/transit";
 import { extractTransitEntities, normalizeTransitEntity } from "@/services/transit-alerts-service";
@@ -79,5 +80,33 @@ describe("normalizeTransitEntity", () => {
       "Other"
     );
     expect(alert.coordinate).toEqual(AGENCY_DEFAULT_COORDINATES.VTA);
+  });
+});
+
+describe("511 JSON service alerts", () => {
+  it("reads the PascalCase shape 511 returns for format=json", () => {
+    const entities = extractTransitEntities(bay511JsonPayload);
+    expect(entities).toHaveLength(4);
+
+    const alert = normalizeTransitEntity(entities[0], "Other");
+    expect(alert).toMatchObject({
+      id: "AC_San Pablo Ave. at West Grand Ave. Stop Closed",
+      agency: "AC Transit",
+      title: "San Pablo at W Grand Stop Closed",
+      description: "San Pablo Ave. at West Grand Ave. stop closed.",
+      url: "https://www.actransit.org/node/30900",
+      startTime: "2025-10-12T13:30:00.000Z"
+    });
+  });
+
+  it("maps numeric GTFS effects to severity instead of reading them as scores", () => {
+    const [stopMoved, lineSuspended, stopClosed, detour] = extractTransitEntities(
+      bay511JsonPayload
+    ).map((entity) => normalizeTransitEntity(entity, "Other"));
+    expect(stopMoved.severity).toBe("minor");
+    // NO_SERVICE on a route is critical; on a single stop it is a closed stop.
+    expect(lineSuspended).toMatchObject({ agency: "BART", severity: "critical" });
+    expect(stopClosed).toMatchObject({ agency: "AC Transit", severity: "major" });
+    expect(detour).toMatchObject({ agency: "Muni", severity: "major", affectedRoutes: ["N"] });
   });
 });
