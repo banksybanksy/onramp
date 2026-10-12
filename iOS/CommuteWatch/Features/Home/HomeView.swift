@@ -101,7 +101,7 @@ struct HomeView: View {
     }
 
     private var topOverlay: some View {
-        GlassEffectContainer {
+        GlassContainer {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .center, spacing: 10) {
                     routeSummaryChip

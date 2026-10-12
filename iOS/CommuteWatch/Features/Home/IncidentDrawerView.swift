@@ -8,7 +8,7 @@ struct IncidentDrawerView: View {
     let onSelectIncident: (Incident) -> Void
 
     var body: some View {
-        GlassEffectContainer {
+        GlassContainer {
             VStack(alignment: .leading, spacing: 14) {
                 Button {
                     withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {

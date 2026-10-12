@@ -71,3 +71,18 @@ private struct SystemGlassSurface<S: Shape>: ViewModifier {
         }
     }
 }
+
+/// `GlassEffectContainer` on iOS 26, a plain pass-through before it.
+struct GlassContainer<Content: View>: View {
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        if #available(iOS 26.0, *) {
+            GlassEffectContainer {
+                content()
+            }
+        } else {
+            content()
+        }
+    }
+}
