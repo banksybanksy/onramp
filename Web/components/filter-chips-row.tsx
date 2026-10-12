@@ -84,7 +84,7 @@ function AgencyChip({
         "cw-reflect-button h-7 rounded-full border px-3 text-[11px] font-medium tracking-[0.01em] transition-all duration-200",
         active
           ? "border-blue-500/80 bg-blue-50 text-blue-700"
-          : "border-slate-200/80 bg-white/60 text-slate-400 hover:border-slate-300 hover:text-slate-600"
+          : "border-slate-200/80 bg-white/60 text-slate-500 hover:border-slate-300 hover:text-slate-700"
       )}
     >
       {label}
@@ -136,13 +136,13 @@ export function FilterChipsRow({
       >
         <div className="pt-0.5">
           <div className="mb-2 flex items-center gap-2">
-            <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">
+            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">
               Agencies
             </span>
             <button
               type="button"
               onClick={handleToggleAllAgencies}
-              className="font-mono text-[9px] uppercase tracking-[0.18em] text-blue-500 transition hover:text-blue-700"
+              className="font-mono text-[10px] uppercase tracking-[0.18em] text-blue-600 transition hover:text-blue-700"
             >
               {allAgenciesOn ? "Deselect all" : "Select all"}
             </button>

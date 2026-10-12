@@ -1,5 +1,6 @@
 "use client";
 
+import { CameraSnapshot } from "@/components/camera-snapshot";
 import type { CameraFeed } from "@/types";
 
 interface CameraPanelProps {
@@ -52,11 +53,11 @@ export function CameraPanel({ camera, onClose }: CameraPanelProps) {
 
       {snapshotSrc ? (
         <div className="mt-5 overflow-hidden rounded-[20px] border border-slate-300 bg-slate-100 shadow-[0_12px_28px_rgba(15,23,42,0.08)]">
-          <img
+          <CameraSnapshot
+            key={snapshotSrc}
             src={snapshotSrc}
             alt={camera.title}
-            className="w-full object-cover"
-            style={{ height: "220px" }}
+            className="h-[220px] w-full object-cover"
           />
         </div>
       ) : null}

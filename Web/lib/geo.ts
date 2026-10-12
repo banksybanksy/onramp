@@ -79,14 +79,17 @@ export function lineDistanceKm(point: Coordinate, path: Coordinate[]) {
   return best;
 }
 
+// freshnessMinutes value for records with no usable timestamp.
+export const NO_TIMESTAMP_MINUTES = 9999;
+
 export function computeFreshnessMinutes(dateString?: string) {
   if (!dateString) {
-    return 9999;
+    return NO_TIMESTAMP_MINUTES;
   }
 
   const timestamp = new Date(dateString).getTime();
   if (Number.isNaN(timestamp)) {
-    return 9999;
+    return NO_TIMESTAMP_MINUTES;
   }
 
   return Math.max(0, (Date.now() - timestamp) / 60000);

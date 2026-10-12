@@ -41,7 +41,9 @@ enum Agency: String, Codable, CaseIterable, Hashable, Identifiable {
     var id: String { rawValue }
 }
 
-enum SourceKey: String, Codable, CaseIterable, Hashable {
+// CodingKeyRepresentable lets `[SourceKey: SourceStatus]` decode from the web API's
+// JSON object (`{ "transit": {...} }`) instead of expecting a key/value array.
+enum SourceKey: String, Codable, CaseIterable, Hashable, CodingKeyRepresentable {
     case transit
     case traffic
     case cameras

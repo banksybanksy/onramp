@@ -96,7 +96,7 @@ export function CorridorFilter({
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">
+        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">
           Route filter
         </span>
         {isActive ? (
@@ -106,7 +106,7 @@ export function CorridorFilter({
               onOriginChange(null);
               onDestinationChange(null);
             }}
-            className="font-mono text-[9px] uppercase tracking-[0.18em] text-rose-400 transition hover:text-rose-600"
+            className="font-mono text-[10px] uppercase tracking-[0.18em] text-rose-600 transition hover:text-rose-700"
           >
             Clear
           </button>

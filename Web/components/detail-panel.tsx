@@ -3,6 +3,7 @@
 import { formatTimestamp, formatRelativeMinutes } from "@/lib/format";
 import type { Incident } from "@/types";
 
+import { CameraSnapshot } from "@/components/camera-snapshot";
 import { SeverityBadge } from "@/components/severity-badge";
 
 interface DetailPanelProps {
@@ -109,7 +110,8 @@ export function DetailPanel({ incident, onClose }: DetailPanelProps) {
             </p>
             <div className="mt-2 overflow-hidden rounded-[18px] border border-slate-300 bg-slate-100">
               {snapshotSrc ? (
-                <img
+                <CameraSnapshot
+                  key={snapshotSrc}
                   src={snapshotSrc}
                   alt={incident.camera.title}
                   className="h-44 w-full object-cover"
